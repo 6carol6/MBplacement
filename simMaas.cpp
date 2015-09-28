@@ -185,6 +185,10 @@ void createTreeTopology()
 void createTenantRequests()
 {
     srand((unsigned)time(0));
+    int open_tenant_num = 0;
+    int dep_to_open_num = 0;
+    int other_dep_num = 0;
+    int open_tenant_list[12000];
     for (int i = 0; i<num_tenant_job; ++i){
         /***** here each tenant creates only one VN *****/
         Tenant vn;
@@ -193,20 +197,9 @@ void createTenantRequests()
 
         // varying mean bandwidth requirement for the tenant jobs
         //cout << "=============Tenant " << i << "==============="<<endl;
-/*
-        int tmp = uniformIntDist(1, 100);
-        if(tmp < 20) vn.min_load = 3500;
-        else if(tmp >= 50)vn.min_load = 1200;
-        else vn.min_load = 800;
-*/
         vn.min_load = uniformIntDist(1100,1300);
         //vn.min_load = uniformIntDist(1000, 1500);
-        /*
-        if(tmp < 60)
-            vn.min_load = uniformIntDist(25, 75);
-        else
-            vn.min_load = 150;
-        */
+
         //vn.external_load = 0;
         vn.external_load = uniformIntDist(200, 300);//(int)vn.min_load/65.0*30.0;//uniformIntDist(50, 100);
 
@@ -224,27 +217,54 @@ void createTenantRequests()
         vn.mb_location->next = NULL;
 
         //add dependency
-        int dep_num = 0;
         int fraction = uniformIntDist(1, 100);
         //if(fraction < 50)
-        if(fraction < 30)
-            dep_num = uniformIntDist(1, min((i+1)/2,2));
-        while(dep_num--){
-            int rand = uniformIntDist(0, i);
-            if(rand == i) continue;
-            vn.dependency.insert(rand);
+
+        //new dependeny arrangement
+        if(fraction < 10){ //Open tenant
+            vn.dependency.insert(-1);
+            open_tenant_list[open_tenant_num++] = i;
+        }
+        else if(fraction >= 10 && fraction < 35){ //Have dependency to open tenant
+            if(open_tenant_num){
+                dep_to_open_num++;
+                int rand = uniformIntDist(0, open_tenant_num-1);
+                vn.dependency.insert(open_tenant_list[rand]);
+            }
+        }else if(fraction >= 35 && fraction < 50){ //Other dependency
+            int dep_num = 1;//uniformIntDist(1, min((i+1)/2,2));
+            while(dep_num--){
+                int rand = uniformIntDist(0, i);
+                if(rand == i) continue;
+                for(list<Tenant>::iterator it1 = tenant_request_queue.begin(); it1!=tenant_request_queue.end(); it1++){
+                    if((*it1).tenant_id == rand && (*it1).dep_num == 0){
+                        other_dep_num++;
+                        vn.dependency.insert(rand);
+                        (*it1).dependency.insert(vn.tenant_id);
+                        (*it1).dep_num++;
+                        break;
+                    }
+                }
+                //vn.dependency.insert(rand);
+            }
         }
         vn.dep_num = vn.dependency.size();
-        //print the dependency
 
-        cout << "Tenant " << i << ": ";
-        for(set<int>::iterator it = vn.dependency.begin(); it!=vn.dependency.end(); it++){
-            cout << *it << ", ";
-        }
-        cout << endl;
 
         tenant_request_queue.push_back(vn);
     }
+    //print the dependency
+    for(list<Tenant>::iterator it1 = tenant_request_queue.begin(); it1!=tenant_request_queue.end(); it1++){
+        cout << "Tenant " << (*it1).tenant_id << ": ";
+
+        for(set<int>::iterator it = (*it1).dependency.begin(); it!=(*it1).dependency.end(); it++){
+            cout << *it << ", ";
+        }
+        cout << endl;
+    }
+    cout << "open tenant num: " << open_tenant_num << endl;
+    cout << "dep to open tenant num:" << dep_to_open_num << endl;
+    cout << "other dep num: " << other_dep_num << endl;
 }
 /*
 void printTreeTopology()
@@ -390,17 +410,7 @@ double s_util()
 }
 
 void AddPlacement(Placement* head, int num, int pm_id){
-    //cout << "AddPlacement" << endl;
-    /*
     if(num == 0) return;
-    Placement* tmp = new Placement();
-    tmp->pm_id = pm_id; tmp->amount = num;
-    tmp->next = head->next;
-    head->next = tmp;
-*/
-    if(num == 0) return;
-    //Placement* tmp = new Placement();
-    //tmp->pm_id = pm_id; tmp->amount = num;
     Placement* p = head;
     while(p->next){
         if(p->pm_id == pm_id){
@@ -433,10 +443,13 @@ void Alloc(Tenant* t, int appvm_n, int mb_n, Node root, IntNodeMap* subtree_vmca
         for(OutArcIt ait(g, root); ait != INVALID; ait++){
             Node child = g.target(ait);
             if(appvm_n != 0){
+                cout << "appvm_n" << appvm_n << "/"<<subtree_vmcap[child]<< endl;
                 //cout << subtree_vmcap[child]<<"place1"<<" "<< t->sum_appvm_req<< endl;
                 int n = min(appvm_n, subtree_vmcap[child]);
                 if(subtree_vmcap[child] > n){
+                    cout << "mb_n: " << mb_n << "/"<<subtree_vmcap[child]<< endl;
                     Alloc(t, n, min(mb_n,subtree_vmcap[child]-n), child, subtree_vmcap_active);
+                    //printAllocation(*t);
                     mb_n -= min(mb_n,subtree_vmcap[child]-n);
                     appvm_n -= n;
                 }else{
@@ -444,7 +457,9 @@ void Alloc(Tenant* t, int appvm_n, int mb_n, Node root, IntNodeMap* subtree_vmca
                     appvm_n -= n;
                 }
             }else{
+                 //printAllocation(*t);
                // cout << subtree_vmcap[child]<<"place2"<< endl;
+               cout << "mb_n: " << mb_n << "/"<<subtree_vmcap[child]<< endl;
                 int n = min(mb_n, subtree_vmcap[child]);
                 Alloc(t, 0, n, child,subtree_vmcap_active);
                 mb_n -= n;
@@ -668,7 +683,7 @@ bool ReserveUpLink(int node_id, int upload_bw, int download_bw, IntArcMap* up_ar
 }
 
 bool ReserveBW_try(Tenant* t, IntArcMap* up_arc_cap_active, IntArcMap* down_arc_cap_active, IntNodeMap* pm_cap_active){
-    ReArrangePlacement(t);
+    //ReArrangePlacement(t);
 
     Placement *p = t->appvm_location->next;
 
@@ -698,15 +713,18 @@ bool ReserveBW_try(Tenant* t, IntArcMap* up_arc_cap_active, IntArcMap* down_arc_
             bw = min(bw, t->sum_appvm_req*t->min_load-bw);
             if(!ReserveUpLink((*rit), bw, bw, up_arc_cap_active, down_arc_cap_active)) return false;
         }
-       // cout << "sixunhuan"<< endl;
         s = s_tmp;
     }
 
     //B_ex
+    //Open Tenant
+    if(t->dependency.find(-1) != t->dependency.end()) return true;
+    //Client Tenant
     for(auto it = tenant_request_queue.begin(); it != tenant_request_queue.end(); it++){
         //if find a dependency - can be optimized
-        if(t->dependency.find((*it).tenant_id) != t->dependency.end()){
+        if(t->dependency.find((*it).tenant_id) != t->dependency.end() && ((*it).dependency.find(-1) != (*it).dependency.end() || (*it).dependency.find(t->tenant_id) != (*it).dependency.end())){
             if(!(*it).placement_success) continue;
+            if(t->tenant_id == (*it).tenant_id) break;
             p = t->appvm_location->next;
             cout << "Dependency: " << (*it).tenant_id << "<-" << t->tenant_id << endl;
 
@@ -719,15 +737,19 @@ bool ReserveBW_try(Tenant* t, IntArcMap* up_arc_cap_active, IntArcMap* down_arc_
                 while(q){
                     int appvm_n = q->amount;
                     int mb_n = ceil((double)appvm_n/(*it).mv_ratio);
-                    int cnt = 0;
 
+                    int cnt = 0;
+                    cout << "q->mb_n: " << mb_n << endl;
+                    int q_amount = q->amount; //changed
                     while(mb_n > 0){
-                        int amount = min(left, q->amount);
+                        int amount = min(left, q_amount);
+                        cout << "amount: " << left << "/" << q_amount << endl;
                         int bw = min(t->external_load*p->amount, (*it).external_load*amount);
 
                         cout << "B_ex" << bw << endl;
                         if(bw == 0) break;
                         left -= amount;
+                        q_amount -= amount;
                         //p->qmb
                         cout << "p->qmb: " << p->pm_id << " " << now->pm_id<< endl;
                         if(!ReserveBWof2Nodes_unblanced(p->pm_id, now->pm_id, bw, bw, up_arc_cap_active, down_arc_cap_active)) return false;
@@ -742,7 +764,7 @@ bool ReserveBW_try(Tenant* t, IntArcMap* up_arc_cap_active, IntArcMap* down_arc_
                             if(with_pmcap && (*pm_cap_active)[node] > PM_CAP[node]) return false;
                         }
 
-                        if(amount == q->amount) break;
+                        if(q_amount == 0) break;
                         if(left <= 0){
                             cout << "next mb" << endl;
                             now = now->next;
@@ -755,9 +777,70 @@ bool ReserveBW_try(Tenant* t, IntArcMap* up_arc_cap_active, IntArcMap* down_arc_
 
                 p = p->next;
             }
+            p = (*it).appvm_location->next;
+            cout << "Dependency: " << (*it).tenant_id << "->" << t->tenant_id << endl;
+            while(p){
+                Placement *q = t->appvm_location->next;
+                Placement *qmb = t->mb_location->next;
+                int left = qmb->amount * t->mv_ratio;
+                Placement *now = qmb;
+
+                while(q){
+                    int appvm_n = q->amount;
+                    int mb_n = ceil((double)appvm_n/t->mv_ratio);
+                    int cnt = 0;
+                    int q_amount = q->amount; //changed
+                    while(mb_n > 0){
+                        int amount = min(left, q_amount);
+                        int bw = min((*it).external_load*p->amount, t->external_load*amount);
+
+                        cout << "B_ex" << bw << endl;
+                        if(bw == 0) break;
+                        left -= amount;
+                        q_amount -= amount;
+                        //p->qmb
+                        cout << "p->qmb: " << p->pm_id << " " << now->pm_id<< endl;
+                        if(!ReserveBWof2Nodes_unblanced(p->pm_id, now->pm_id, bw, bw, up_arc_cap_active, down_arc_cap_active)) return false;
+
+                        //qmb->q
+                        cout << "qmb->q: " << now->pm_id << " " << q->pm_id << endl;
+                        if(now->pm_id != q->pm_id){ //mb & appvm do not on the same PM
+                            if(!ReserveBWof2Nodes_unblanced(now->pm_id, q->pm_id, bw, bw, up_arc_cap_active, down_arc_cap_active)) return false;
+                        }else{
+                            Node node = g.nodeFromId(p->pm_id);
+                            (*pm_cap_active)[node] += bw;
+                            if(with_pmcap && (*pm_cap_active)[node] > PM_CAP[node]) return false;
+                        }
+
+                        if(q_amount == 0) break;
+                        if(left <= 0){
+                            cout << "next mb" << endl;
+                            now = now->next;
+                            if(now) left = now->amount * t->mv_ratio;
+                            mb_n -= 1;
+                        }
+                    }
+                    q = q->next;
+                }
+
+                p = p->next;
+            }
         }
     }
     return true;
+}
+
+void Invert(Placement *head){
+    Placement* p = head->next;
+    Placement* q = p->next;
+    p->next = NULL;
+    while(q != NULL){
+        Placement* r = q->next;
+        q->next = p;
+        p = q;
+        q = r;
+    }
+    head->next = p;
 }
 
 bool placement(Tenant* t){
@@ -774,8 +857,9 @@ bool placement(Tenant* t){
         int sum_mb_req = t->sum_mb_req;
         IntNodeMap subtree_vmcap_active(g,0);
         Alloc(t, t->sum_appvm_req, t->sum_mb_req, st, &subtree_vmcap_active);
+        Invert(t->mb_location);
 
-        printAllocation(*t);//test
+        //printAllocation(*t);//test
         if(t->placement_success){
             t->sum_appvm_req = sum_appvm_req;
             t->sum_mb_req = sum_mb_req;
@@ -997,8 +1081,8 @@ void place(){
 
     cout<<"Util Rate: " << 1.0-s_util()<<endl;
     cout<<"Accept Rate: " << (double)accept_req/total_req<<endl;
-    ofstream file("./test29/acc_util_without1200.txt", ios::app);
-    file <<(double)accept_req/total_req << endl;
+    //ofstream file("./test29/acc_util_without1200.txt", ios::app);
+    //file <<(double)accept_req/total_req << endl;
     //ofstream file("./test27/acc_util_r3_16.txt", ios::app);
     //file <<(double)accept_req/total_req << endl;
 
