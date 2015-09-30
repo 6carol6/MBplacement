@@ -206,15 +206,19 @@ void createTenantRequests()
         //vn.sum_appvm_req = uniformIntDist(10, 15);
         vn.sum_appvm_req = uniformIntDist(5, 15);
 
-        int mv_ratio = uniformIntDist(2,8);//uniformIntDist(2,8);//3;//uniformIntDist(3,6);
-        //int mv_ratio = uniformIntDist(2,8);
-        vn.mv_ratio = mv_ratio;
-        vn.sum_mb_req = (vn.sum_appvm_req%vn.mv_ratio)?vn.sum_appvm_req/vn.mv_ratio+1:vn.sum_appvm_req/vn.mv_ratio;
+        vn.mb_type_num = uniformIntDist(1,3);//How many types of MBs?
+        vn.sum_mb_req = 0;
+        for(int j = 0; j < vn.mb_type_num; j++){
+            int mv_ratio = uniformIntDist(2,8);
+            vn.mv_ratio[j] = mv_ratio;
+            vn.mb_req_num[j] = (vn.sum_appvm_req%vn.mv_ratio[j])?vn.sum_appvm_req/vn.mv_ratio[j]+1:vn.sum_appvm_req/vn.mv_ratio[j];
+            vn.sum_mb_req += vn.mb_req_num[j];
+            vn.mb_location[j] = new Placement();
+            vn.mb_location[j]->next = NULL;
+        }
         vn.placement_success = false;
         vn.appvm_location = new Placement();
         vn.appvm_location->next = NULL;
-        vn.mb_location = new Placement();
-        vn.mb_location->next = NULL;
 
         //add dependency
         int fraction = uniformIntDist(1, 100);
@@ -313,7 +317,7 @@ void printTenantRequest(const Tenant& vn)
 void printAllocation(Tenant &t)
 {
         Placement *p = t.appvm_location->next;
-        Placement *q = t.mb_location->next;
+
         cout<<"vm location: ";
         while(p){
             cout<<"<"<<p->pm_id<<","<<p->amount<<">";
@@ -321,9 +325,12 @@ void printAllocation(Tenant &t)
         }
         cout<<endl;
         cout<<"mb location: ";
-        while(q){
-            cout<<"<"<<q->pm_id<<","<<q->amount<<">";
-            q = q->next;
+        for(int i = 0; i < t.mb_type_num; i++){
+            Placement *q = t.mb_location[i]->next;
+            while(q){
+                cout<<"<"<<q->pm_id<<","<<q->amount<<">";
+                q = q->next;
+            }
         }
         cout<<endl;
 }
@@ -394,13 +401,15 @@ void Clean(Tenant* t, int sum_appvm_req, int sum_mb_req)
     }
     t->appvm_location->next = NULL;
 
-    p = t->mb_location->next;
-    while(p){
-        q = p->next;
-        free(p);
-        p = q;
+    for(int i = 0; i < t->mb_type_num; i++){
+        p = t->mb_location[i]->next;
+        while(p){
+            q = p->next;
+            free(p);
+            p = q;
+        }
+        t->mb_location[i]->next = NULL;
     }
-    t->mb_location->next = NULL;
     t->placement_success = false;
 }
 
@@ -681,6 +690,14 @@ bool ReserveUpLink(int node_id, int upload_bw, int download_bw, IntArcMap* up_ar
     }
     return true;
 }
+bool ReserveBWof2Installation(Placement* src, int src_amount, Placement* dst, int dst_amount, int bw, IntArcMap* up_arc_cap_active, IntArcMap* down_arc_cap_active, IntNodeMap* pm_cap_active){
+
+    return true;
+}
+bool ReserveBWof2MBs(Placement* src, int src_amount, Placement** dst, int dst_amount, int bw, IntArcMap* up_arc_cap_active, IntArcMap* down_arc_cap_active, IntNodeMap* pm_cap_active){
+    for()
+    return true;
+}
 
 bool ReserveBW_try(Tenant* t, IntArcMap* up_arc_cap_active, IntArcMap* down_arc_cap_active, IntNodeMap* pm_cap_active){
     //ReArrangePlacement(t);
@@ -727,6 +744,34 @@ bool ReserveBW_try(Tenant* t, IntArcMap* up_arc_cap_active, IntArcMap* down_arc_
             if(t->tenant_id == (*it).tenant_id) break;
             p = t->appvm_location->next;
             cout << "Dependency: " << (*it).tenant_id << "<-" << t->tenant_id << endl;
+            int bw = min(t->external_load*p->amount, (*it).external_load*amount);
+
+            while(p){
+                Placement *q = (*it).appvm_location->next;
+                //Placement *qmb = (*it).mb_location->next;
+                //int left = qmb->amount * (*it).mv_ratio;
+                //Placement *now = qmb;
+                Placement* now[10];
+                int left[10];
+                for(int i = 0; i < (*it).mb_type_num; i++){
+                    left[i] = (*it).mb_location[i]->next->amount;
+                }
+
+                while(q){
+                    //p->mb1
+                    ReserveBWof2Installation();
+                    //mb1->...->mbn
+                    for(int i = 1; i < (*it).mb_type_num-1; i++){
+                        ReserveBWof2MBs(now[i], q->amount, &now[i+1], q->amount, bw, up_arc_cap_active, down_arc_cap_active, pm_cap_active);
+                    }
+                    //mbn->q
+                    ReserveBWof2Installation();
+                    q = q->next;
+                }
+                p = p->next;
+            }
+
+
 
             while(p){
                 Placement *q = (*it).appvm_location->next;
@@ -744,7 +789,7 @@ bool ReserveBW_try(Tenant* t, IntArcMap* up_arc_cap_active, IntArcMap* down_arc_
                     while(mb_n > 0){
                         int amount = min(left, q_amount);
                         cout << "amount: " << left << "/" << q_amount << endl;
-                        int bw = min(t->external_load*p->amount, (*it).external_load*amount);
+
 
                         cout << "B_ex" << bw << endl;
                         if(bw == 0) break;
@@ -843,6 +888,26 @@ void Invert(Placement *head){
     head->next = p;
 }
 
+void UnpackMBs(Placement*[] mb_location, int mb_type_num, int[] mb_req_num){
+    int mb_req_num_tmp[10];
+    mb_req_num_tmp = memcpy(&mb_req_num_tmp, &mb_req_num, sizeof(mb_req_num));
+    Placement* head = mb_location[0]->next;
+    mb_location[0]->next = NULL;
+    for(int i = 0; i < mb_type_num; i++){
+        while(head->amount <= mb_req_num_tmp[i]){
+            AddPlacement(mb_location[i], head->amount, head->pm_id);
+            mb_req_num_tmp[i] -= head->amount;
+            Placement* cleantmp = head;
+            head = head->next;
+            delete(cleantmp);
+        }
+        if(mb_req_num_tmp[i] != 0){
+            AddPlacement(mb_location[i], mb_req_num_tmp[i], head->pm_id);
+            head->amount -= mb_req_num_tmp[i];
+        }
+    }
+}
+
 bool placement(Tenant* t){
     int level = 0;
     int again = 999999;
@@ -851,13 +916,18 @@ bool placement(Tenant* t){
 
     while(ln != NULL && ln->node!=0){//while(node_type[st] != CORE){
         //if(ln->is_last) is_place1 = true;
-        cout << "carolz"<<ln->node << endl;
+        //cout << "carolz"<<ln->node << endl;
         Node st = g.nodeFromId(ln->node);
         int sum_appvm_req = t->sum_appvm_req;
         int sum_mb_req = t->sum_mb_req;
         IntNodeMap subtree_vmcap_active(g,0);
         Alloc(t, t->sum_appvm_req, t->sum_mb_req, st, &subtree_vmcap_active);
-        Invert(t->mb_location);
+        UnpackMBs(t->mb_location, t->mb_type_num, t->mb_req_num);
+        for(int i = 0; i < mb_type_num; i++){
+            if(i%2 == t->mb_type_num%2){
+                Invert(t->mb_location[i]);
+            }
+        }
 
         //printAllocation(*t);//test
         if(t->placement_success){

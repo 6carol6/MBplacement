@@ -72,13 +72,15 @@ struct Tenant
 {
     int              tenant_id;
     int              sum_appvm_req;
-    int              sum_mb_req;
+    int              sum_mb_req; //How many MBs all together
     int              min_load;
     int              external_load;
     bool             placement_success;
     Placement*       appvm_location;
-    Placement*       mb_location;
-    int              mv_ratio;
+    Placement*       mb_location[10];
+    int              mb_req_num[10]; //How many MBs each type of MB?
+    int              mb_type_num; //How many types of MBs?
+    int              mv_ratio[10];
     int              dep_num;
     set<int>         dependency;
 };
