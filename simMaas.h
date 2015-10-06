@@ -91,6 +91,12 @@ struct LinkNode{
     LinkNode* next;
 };
 
+struct SSNode{
+    int pm_id;
+    int  ;
+    SSNode* children;
+};
+
 typedef list<Tenant> Tenant_Request_Queue;
 
 

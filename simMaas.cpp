@@ -690,21 +690,9 @@ bool ReserveUpLink(int node_id, int upload_bw, int download_bw, IntArcMap* up_ar
     }
     return true;
 }
-bool ReserveBWof2Installation(Placement* src, int src_amount, Placement* dst, int dst_amount, int bw, IntArcMap* up_arc_cap_active, IntArcMap* down_arc_cap_active, IntNodeMap* pm_cap_active){
 
-    return true;
-}
-bool ReserveBWof2MBs(Placement* src, int src_amount, Placement** dst, int dst_amount, int bw, IntArcMap* up_arc_cap_active, IntArcMap* down_arc_cap_active, IntNodeMap* pm_cap_active){
-    for()
-    return true;
-}
-
-bool ReserveBW_try(Tenant* t, IntArcMap* up_arc_cap_active, IntArcMap* down_arc_cap_active, IntNodeMap* pm_cap_active){
-    //ReArrangePlacement(t);
-
-    Placement *p = t->appvm_location->next;
-
-    //B_in
+bool ReserveBin(Tenant* t, IntArcMap* up_arc_cap_active, IntArcMap* down_arc_cap_active, IntNodeMap* pm_cap_active){
+   Placement *p = t->appvm_location->next;
     set<int> s;
     while(p){
         int bw = min((t->sum_appvm_req-p->amount)*t->min_load, p->amount*t->min_load);
@@ -732,97 +720,69 @@ bool ReserveBW_try(Tenant* t, IntArcMap* up_arc_cap_active, IntArcMap* down_arc_
         }
         s = s_tmp;
     }
+    return true;
+}
 
-    //B_ex
-    //Open Tenant
-    if(t->dependency.find(-1) != t->dependency.end()) return true;
-    //Client Tenant
-    for(auto it = tenant_request_queue.begin(); it != tenant_request_queue.end(); it++){
+bool ReserveBWof2MBs(Placement* src, int src_amount, Placement** dst, int dst_amount, int bw, IntArcMap* up_arc_cap_active, IntArcMap* down_arc_cap_active, IntNodeMap* pm_cap_active){
+    for()
+    return true;
+}
+
+bool ReserveBFS(){
+
+    return true;
+}
+
+bool ReserveBWof2Tenant(Placement* src, Placement* dst, int bw_all, Placement* now[], int left[], int mb_type_num, const int R[], IntArcMap* up_arc_cap_active, IntArcMap* down_arc_cap_active, IntNodeMap* pm_cap_active){
+    //init
+    int appvm_n = dst->amount;
+    int mb_n[10];
+    for(int i = 0; i < mb_type_num; i++){
+        mb_n[i] = ceil((double)appvn_n/R[i]);
+    }
+
+    SSNode* s = new SSNode();
+    //src->mb
+    s->
+
+    //mb
+    for(int i = 1; i < mb_type_num; i++){
+
+    }
+
+    //mb->dst
+    return true;
+}
+
+
+bool ReserveBex(Tenant* t, IntArcMap* up_arc_cap_active, IntArcMap* down_arc_cap_active, IntNodeMap* pm_cap_active){
+   for(auto it = tenant_request_queue.begin(); it != tenant_request_queue.end(); it++){
         //if find a dependency - can be optimized
         if(t->dependency.find((*it).tenant_id) != t->dependency.end() && ((*it).dependency.find(-1) != (*it).dependency.end() || (*it).dependency.find(t->tenant_id) != (*it).dependency.end())){
             if(!(*it).placement_success) continue;
             if(t->tenant_id == (*it).tenant_id) break;
-            p = t->appvm_location->next;
-            cout << "Dependency: " << (*it).tenant_id << "<-" << t->tenant_id << endl;
-            int bw = min(t->external_load*p->amount, (*it).external_load*amount);
 
+            cout << "Dependency: " << (*it).tenant_id << "<-" << t->tenant_id << endl;
+            Placement* p = t->appvm_location->next;
             while(p){
                 Placement *q = (*it).appvm_location->next;
-                //Placement *qmb = (*it).mb_location->next;
-                //int left = qmb->amount * (*it).mv_ratio;
-                //Placement *now = qmb;
                 Placement* now[10];
                 int left[10];
                 for(int i = 0; i < (*it).mb_type_num; i++){
-                    left[i] = (*it).mb_location[i]->next->amount;
+                    now[i] = (*it).mb_location[i]->next;
+                    left[i] = now[i]->amount;
                 }
-
                 while(q){
-                    //p->mb1
-                    ReserveBWof2Installation();
-                    //mb1->...->mbn
-                    for(int i = 1; i < (*it).mb_type_num-1; i++){
-                        ReserveBWof2MBs(now[i], q->amount, &now[i+1], q->amount, bw, up_arc_cap_active, down_arc_cap_active, pm_cap_active);
-                    }
-                    //mbn->q
-                    ReserveBWof2Installation();
+                    int bw = min(p->amount*t->external_load, q->amount*(*it).external_load);
+                    if(!ReserveBWof2Tenant(p, q, bw, now, left, (*it).mb_type_num, (*it).mv_ratio, up_arc_cap_active, down_arc_cap_active, pm_cap_active)) return false;
                     q = q->next;
                 }
                 p = p->next;
             }
 
-
-
-            while(p){
-                Placement *q = (*it).appvm_location->next;
-                Placement *qmb = (*it).mb_location->next;
-                int left = qmb->amount * (*it).mv_ratio;
-                Placement *now = qmb;
-
-                while(q){
-                    int appvm_n = q->amount;
-                    int mb_n = ceil((double)appvm_n/(*it).mv_ratio);
-
-                    int cnt = 0;
-                    cout << "q->mb_n: " << mb_n << endl;
-                    int q_amount = q->amount; //changed
-                    while(mb_n > 0){
-                        int amount = min(left, q_amount);
-                        cout << "amount: " << left << "/" << q_amount << endl;
-
-
-                        cout << "B_ex" << bw << endl;
-                        if(bw == 0) break;
-                        left -= amount;
-                        q_amount -= amount;
-                        //p->qmb
-                        cout << "p->qmb: " << p->pm_id << " " << now->pm_id<< endl;
-                        if(!ReserveBWof2Nodes_unblanced(p->pm_id, now->pm_id, bw, bw, up_arc_cap_active, down_arc_cap_active)) return false;
-
-                        //qmb->q
-                        cout << "qmb->q: " << now->pm_id << " " << q->pm_id << endl;
-                        if(now->pm_id != q->pm_id){ //mb & appvm do not on the same PM
-                            if(!ReserveBWof2Nodes_unblanced(now->pm_id, q->pm_id, bw, bw, up_arc_cap_active, down_arc_cap_active)) return false;
-                        }else{
-                            Node node = g.nodeFromId(p->pm_id);
-                            (*pm_cap_active)[node] += bw;
-                            if(with_pmcap && (*pm_cap_active)[node] > PM_CAP[node]) return false;
-                        }
-
-                        if(q_amount == 0) break;
-                        if(left <= 0){
-                            cout << "next mb" << endl;
-                            now = now->next;
-                            if(now) left = now->amount * (*it).mv_ratio;
-                            mb_n -= 1;
-                        }
-                    }
-                    q = q->next;
-                }
-
-                p = p->next;
-            }
             p = (*it).appvm_location->next;
+            /*
+            //write after
             cout << "Dependency: " << (*it).tenant_id << "->" << t->tenant_id << endl;
             while(p){
                 Placement *q = t->appvm_location->next;
@@ -835,43 +795,23 @@ bool ReserveBW_try(Tenant* t, IntArcMap* up_arc_cap_active, IntArcMap* down_arc_
                     int mb_n = ceil((double)appvm_n/t->mv_ratio);
                     int cnt = 0;
                     int q_amount = q->amount; //changed
-                    while(mb_n > 0){
-                        int amount = min(left, q_amount);
-                        int bw = min((*it).external_load*p->amount, t->external_load*amount);
 
-                        cout << "B_ex" << bw << endl;
-                        if(bw == 0) break;
-                        left -= amount;
-                        q_amount -= amount;
-                        //p->qmb
-                        cout << "p->qmb: " << p->pm_id << " " << now->pm_id<< endl;
-                        if(!ReserveBWof2Nodes_unblanced(p->pm_id, now->pm_id, bw, bw, up_arc_cap_active, down_arc_cap_active)) return false;
-
-                        //qmb->q
-                        cout << "qmb->q: " << now->pm_id << " " << q->pm_id << endl;
-                        if(now->pm_id != q->pm_id){ //mb & appvm do not on the same PM
-                            if(!ReserveBWof2Nodes_unblanced(now->pm_id, q->pm_id, bw, bw, up_arc_cap_active, down_arc_cap_active)) return false;
-                        }else{
-                            Node node = g.nodeFromId(p->pm_id);
-                            (*pm_cap_active)[node] += bw;
-                            if(with_pmcap && (*pm_cap_active)[node] > PM_CAP[node]) return false;
-                        }
-
-                        if(q_amount == 0) break;
-                        if(left <= 0){
-                            cout << "next mb" << endl;
-                            now = now->next;
-                            if(now) left = now->amount * t->mv_ratio;
-                            mb_n -= 1;
-                        }
-                    }
                     q = q->next;
                 }
-
                 p = p->next;
-            }
+            }*/
         }
-    }
+   }
+    return true;
+}
+
+bool ReserveBW_try(Tenant* t, IntArcMap* up_arc_cap_active, IntArcMap* down_arc_cap_active, IntNodeMap* pm_cap_active){
+    //ReArrangePlacement(t);
+    if(!ReserveBin(t, up_arc_cap_active, down_arc_cap_active, pm_cap_active)) return false;
+    //Open Tenant
+    if(t->dependency.find(-1) != t->dependency.end()) return true;
+    //Client Tenant
+    if(!ReserveBex(t, up_arc_cap_active, down_arc_cap_active, pm_cap_active)) return false;
     return true;
 }
 
