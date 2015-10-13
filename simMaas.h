@@ -45,6 +45,7 @@ typedef Digraph::NodeMap<Node>   ParentNodeMap;
 
 #define INT_MAX 0x7fffffff
 #define TOTAL_MB_TYPE   2
+#define DOUBLE_ZERO 0.0000000001
 
 
 enum MiddleboxType
@@ -65,6 +66,7 @@ enum ArcType
 struct Placement{
     int             pm_id;
     int             amount;
+    double          percentage;
     Placement*      next;
 };
 
@@ -83,18 +85,6 @@ struct Tenant
     int              mv_ratio[10];
     int              dep_num;
     set<int>         dependency;
-};
-
-struct LinkNode{
-    int node;
-    bool is_start;
-    LinkNode* next;
-};
-
-struct SSNode{
-    int pm_id;
-    int  ;
-    SSNode* children;
 };
 
 typedef list<Tenant> Tenant_Request_Queue;
