@@ -736,24 +736,32 @@ bool ReserveBWof2MBs(Placement* src, Placement* dst, double bw, DoubleArcMap* up
     double pper = p->percentage;
     double qper = q->percentage;
     while(p){
-        while(p->percentage > q->percentage){
+        pper = p->percentage;
+        if(q == NULL && p != NULL) cout <<"BUG" << endl;
+        while(q != NULL && p->percentage > q->percentage){
+            cout << "p/q:" << p->percentage << "/" << q->percentage<<endl;
             double bw_tmp = bw*q->percentage;
             if(!ReserveBWof2Nodes_unblanced(p->pm_id, q->pm_id, bw_tmp, bw_tmp, up_arc_cap_active, down_arc_cap_active)) return false;
             p->percentage -= q->percentage;
             if(p->percentage < DOUBLE_ZERO) q->percentage = qper;
             q = q->next;
+            if(q != NULL) qper = q->percentage;
         }
-
+        cout << "-------------"<<endl;
+        if(q == NULL) cout <<"qNULL"<< p->percentage << endl;
         if(p->percentage > DOUBLE_ZERO){
+            cout << "p/q:" << p->percentage << "/" << q->percentage<<endl;
             double bw_tmp = bw*p->percentage;
             if(!ReserveBWof2Nodes_unblanced(p->pm_id, q->pm_id, bw_tmp, bw_tmp, up_arc_cap_active, down_arc_cap_active)) return false;
             q->percentage -= p->percentage;
             if(q->percentage < DOUBLE_ZERO){
+
                 q->percentage = qper;
                 q = q->next;
                 if(q != NULL) qper = q->percentage;
             }
         }
+        cout << "============"<<endl;
         p->percentage = pper;
         p = p->next;
     }
