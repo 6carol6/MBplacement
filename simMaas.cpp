@@ -735,7 +735,10 @@ bool ReserveBWof2MBs(Placement* src, Placement* dst, double bw, DoubleArcMap* up
     Placement* q = dst;
     double pper = p->percentage;
     double qper = q->percentage;
+    double sum_p =0 ;
+    double sum_q = 0;
     while(p){
+
         pper = p->percentage;
         if(q == NULL && p != NULL) cout <<"BUG" << endl;
         while(q != NULL && p->percentage > q->percentage){
@@ -743,11 +746,12 @@ bool ReserveBWof2MBs(Placement* src, Placement* dst, double bw, DoubleArcMap* up
             double bw_tmp = bw*q->percentage;
             if(!ReserveBWof2Nodes_unblanced(p->pm_id, q->pm_id, bw_tmp, bw_tmp, up_arc_cap_active, down_arc_cap_active)) return false;
             p->percentage -= q->percentage;
-            if(p->percentage < DOUBLE_ZERO) q->percentage = qper;
+            q->percentage = qper;
+            sum_q += qper;
             q = q->next;
             if(q != NULL) qper = q->percentage;
         }
-        cout << "-------------"<<endl;
+        cout << "-------1------"<<endl;
         if(q == NULL) cout <<"qNULL"<< p->percentage << endl;
         if(p->percentage > DOUBLE_ZERO){
             cout << "p/q:" << p->percentage << "/" << q->percentage<<endl;
@@ -755,16 +759,20 @@ bool ReserveBWof2MBs(Placement* src, Placement* dst, double bw, DoubleArcMap* up
             if(!ReserveBWof2Nodes_unblanced(p->pm_id, q->pm_id, bw_tmp, bw_tmp, up_arc_cap_active, down_arc_cap_active)) return false;
             q->percentage -= p->percentage;
             if(q->percentage < DOUBLE_ZERO){
-
                 q->percentage = qper;
+                sum_q += qper;
                 q = q->next;
                 if(q != NULL) qper = q->percentage;
             }
         }
-        cout << "============"<<endl;
+cout << "-------2------"<<endl;
         p->percentage = pper;
+        sum_p += pper;
         p = p->next;
     }
+    if(sum_p != 1) cout << "errorp" << sum_p << endl;
+    if(sum_q != 1) cout << "errorq" << sum_q <<endl;
+    cout << "============"<<endl;
     return true;
 }
 
@@ -783,9 +791,11 @@ bool ReserveBWof2Tenant(Tenant* src, Tenant* dst, double bw_sum, DoubleArcMap* u
         }
         //mb
         for(int i = 1; i < dst->mb_type_num; i++){
+            cout <<"mb"<<i-1<<" -> "<<"mb" << i << endl;
             ReserveBWof2MBs(dst->mb_location[i-1]->next, dst->mb_location[i]->next, bw, up_arc_cap_active, down_arc_cap_active, pm_cap_active);
         }
         //mb->dst
+        cout <<"mb"<<dst->mb_type_num-1<<" -> dst"<<endl;
         ReserveBWof2MBs(dst->mb_location[dst->mb_type_num-1]->next, dst->appvm_location->next, bw, up_arc_cap_active, down_arc_cap_active, pm_cap_active);
 
         p = p->next;
@@ -841,8 +851,10 @@ void UnpackMBs(Placement* mb_location[], int mb_type_num, int mb_req_num[]){
     Placement* head = mb_location[0]->next;
     mb_location[0]->next = NULL;
     for(int i = 0; i < mb_type_num; i++){
+        double sum = 0;
         while(head != NULL && head->amount <= mb_req_num_tmp[i]){
             AddPlacement(mb_location[i], head->amount, head->pm_id, (double)head->amount/mb_req_num[i]);
+            sum += (double)head->amount/mb_req_num[i];
             mb_req_num_tmp[i] -= head->amount;
             Placement* cleantmp = head;
             head = head->next;
@@ -850,8 +862,10 @@ void UnpackMBs(Placement* mb_location[], int mb_type_num, int mb_req_num[]){
         }
         if(mb_req_num_tmp[i] != 0){
             AddPlacement(mb_location[i], mb_req_num_tmp[i], head->pm_id, (double)mb_req_num_tmp[i]/mb_req_num[i]);
+            sum += (double)mb_req_num_tmp[i]/mb_req_num[i];
             head->amount -= mb_req_num_tmp[i];
         }
+        if(sum != 1.0) cout << "error: " << sum << endl;
     }
 }
 
