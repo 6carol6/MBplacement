@@ -28,7 +28,6 @@ IntArcMap      arc_type(g);
 IntNodeMap     subtree_vmcap(g);
 DoubleArcMap      arc_upload_cap(g);
 DoubleArcMap      arc_download_cap(g);
-IntArcMap      arc_weight(g);
 ParentNodeMap  parent_node(g);
 
 IntArcMap      hosts_allowed(g);
@@ -206,7 +205,7 @@ void createTenantRequests()
         //vn.sum_appvm_req = uniformIntDist(10, 15);
         vn.sum_appvm_req = uniformIntDist(5, 15);
 
-        vn.mb_type_num = uniformIntDist(1,3);//How many types of MBs?
+        vn.mb_type_num = uniformIntDist(MB_TYPE_NUM_MIN, MB_TYPE_NUM_MAX);//How many types of MBs?
         vn.sum_mb_req = 0;
         for(int j = 0; j < vn.mb_type_num; j++){
             int mv_ratio = uniformIntDist(2,8);
@@ -441,7 +440,7 @@ void Alloc(Tenant* t, int appvm_n, int mb_n, Node root, IntNodeMap* subtree_vmca
         //cout << appvm_n << " " << mb_n <<endl;
         AddPlacement(t->appvm_location, appvm_n, g.id(root), 0);
         //cout << "test" << t->appvm_location->next->pm_id << endl;
-        AddPlacement(t->mb_location, mb_n, g.id(root), 0);
+        AddPlacement(t->mb_location[0], mb_n, g.id(root), 0);
         t->sum_appvm_req -= appvm_n;
         t->sum_mb_req -= mb_n;
         if(t->sum_appvm_req == 0 && t->sum_mb_req == 0) t->placement_success = true;
@@ -539,7 +538,7 @@ void Alloc(Tenant* t, int appvm_n, int mb_n, Node root, IntNodeMap* subtree_vmca
     }*/
 }
 
-void ModifyCap(IntArcMap *up_arc_cap_active, IntArcMap* down_arc_cap_active, IntNodeMap* pm_cap_active){
+void ModifyCap(DoubleArcMap *up_arc_cap_active, DoubleArcMap* down_arc_cap_active, DoubleNodeMap* pm_cap_active){
     for(ArcIt a(g); a!=INVALID; a++){
         arc_upload_cap[a] -= (*up_arc_cap_active)[a];
         arc_download_cap[a] -= (*down_arc_cap_active)[a];
@@ -561,15 +560,17 @@ void ModifyHostAllowed(Tenant* t){
         }
         p = p->next;
     }
-    p = t->mb_location->next;
-    while(p){
-        Node tmpa = g.nodeFromId(p->pm_id);
-        subtree_vmcap[tmpa] -= p->amount;
-        while(g.id(parent_node[tmpa]) != 0){
-            tmpa = parent_node[tmpa];
+    for(int i = 0; i < t->mb_type_num; i++){
+        p = t->mb_location[i]->next;
+        while(p){
+            Node tmpa = g.nodeFromId(p->pm_id);
             subtree_vmcap[tmpa] -= p->amount;
+            while(g.id(parent_node[tmpa]) != 0){
+                tmpa = parent_node[tmpa];
+                subtree_vmcap[tmpa] -= p->amount;
+            }
+            p = p->next;
         }
-        p = p->next;
     }
 }
 bool ReserveBWof2Nodes_unblanced(int src, int dst, double uplink_bw, double downlink_bw, DoubleArcMap* up_arc_cap_active, DoubleArcMap* down_arc_cap_active){
@@ -636,7 +637,7 @@ bool ReserveBWof2Nodes(int a, int b, double uplink_bw, double downlink_bw, Doubl
     }
     return true;
 }
-
+/*
 void ReArrangePlacement(Tenant* t){
     int pm_app = 0; int pm_mb = 0;
     Placement* p = t->mb_location->next;
@@ -679,9 +680,9 @@ void ReArrangePlacement(Tenant* t){
         q = q->next;
     }
 }
-
+*/
 bool ReserveUpLink(int node_id, double upload_bw, double download_bw, DoubleArcMap* up_arc_cap_active, DoubleArcMap* down_arc_cap_active){
-    if(upload_bw == 0 && download_bw == 0) return true;
+    if(upload_bw < DOUBLE_ZERO && download_bw < DOUBLE_ZERO) return true;
     Node nodeA = g.nodeFromId(node_id);
     for(OutArcIt ait(g, parent_node[nodeA]); ait != INVALID; ait++){
         Node tmp = g.target(ait);
@@ -716,7 +717,7 @@ bool ReserveBin(Tenant* t, DoubleArcMap* up_arc_cap_active, DoubleArcMap* down_a
             s_tmp.insert(g.id(parent_node[g.nodeFromId(*rit)]));
         }
         for(rit=s_tmp.rbegin();rit!=s_tmp.rend();rit++){
-            int bw;
+            double bw;
             for(OutArcIt ait(g, g.nodeFromId(*rit)); ait != INVALID; ait++){
                 bw += (*up_arc_cap_active)[ait];
             }
@@ -728,20 +729,20 @@ bool ReserveBin(Tenant* t, DoubleArcMap* up_arc_cap_active, DoubleArcMap* down_a
     return true;
 }
 
-bool ReserveBWof2MBs(Placement* src, Placement* dst, int bw, IntArcMap* up_arc_cap_active, IntArcMap* down_arc_cap_active, IntNodeMap* pm_cap_active){
+bool ReserveBWof2MBs(Placement* src, Placement* dst, double bw, DoubleArcMap* up_arc_cap_active, DoubleArcMap* down_arc_cap_active, DoubleNodeMap* pm_cap_active){
     Placement* p = src;
     Placement* q = dst;
     double pper = p->percentage;
     double qper = q->percentage;
     while(p){
         while(p->percentage > q->percentage){
-            int bw_tmp = bw*q->percentage;
+            double bw_tmp = bw*q->percentage;
             if(!ReserveBWof2Nodes_unblanced(p->pm_id, q->pm_id, bw_tmp, bw_tmp, up_arc_cap_active, down_arc_cap_active)) return false;
             p->percentage -= q->percentage;
             q = q->next;
         }
         if(p->percentage > DOUBLE_ZERO){
-            int bw_tmp = bw*p->percentage;
+            double bw_tmp = bw*p->percentage;
             if(!ReserveBWof2Nodes_unblanced(p->pm_id, q->pm_id, bw_tmp, bw_tmp, up_arc_cap_active, down_arc_cap_active)) return false;
             q->percentage -= p->percentage;
             if(q->percentage < DOUBLE_ZERO){
@@ -756,7 +757,7 @@ bool ReserveBWof2MBs(Placement* src, Placement* dst, int bw, IntArcMap* up_arc_c
     return true;
 }
 
-bool ReserveBWof2Tenant(Tenant* src, Tenant* dst, int bw_sum, IntArcMap* up_arc_cap_active, IntArcMap* down_arc_cap_active, IntNodeMap* pm_cap_active){
+bool ReserveBWof2Tenant(Tenant* src, Tenant* dst, double bw_sum, DoubleArcMap* up_arc_cap_active, DoubleArcMap* down_arc_cap_active, DoubleNodeMap* pm_cap_active){
     Placement* p = src->appvm_location->next;
 
     while(p){
@@ -775,7 +776,7 @@ bool ReserveBWof2Tenant(Tenant* src, Tenant* dst, int bw_sum, IntArcMap* up_arc_
         }
 
         //mb->dst
-        ReserveBWof2MBs(dst->mb_location[mb_type_num-1]->next, dst->appvm_location->next, bw, up_arc_cap_active, down_arc_cap_active, pm_cap_active);
+        ReserveBWof2MBs(dst->mb_location[dst->mb_type_num-1]->next, dst->appvm_location->next, bw, up_arc_cap_active, down_arc_cap_active, pm_cap_active);
 
         p = p->next;
     }
@@ -783,7 +784,7 @@ bool ReserveBWof2Tenant(Tenant* src, Tenant* dst, int bw_sum, IntArcMap* up_arc_
 }
 
 
-bool ReserveBex(Tenant* t, IntArcMap* up_arc_cap_active, IntArcMap* down_arc_cap_active, IntNodeMap* pm_cap_active){
+bool ReserveBex(Tenant* t, DoubleArcMap* up_arc_cap_active, DoubleArcMap* down_arc_cap_active, DoubleNodeMap* pm_cap_active){
    for(auto it = tenant_request_queue.begin(); it != tenant_request_queue.end(); it++){
         //if find a dependency - can be optimized
         if(t->dependency.find((*it).tenant_id) != t->dependency.end() && ((*it).dependency.find(-1) != (*it).dependency.end() || (*it).dependency.find(t->tenant_id) != (*it).dependency.end())){
@@ -791,9 +792,9 @@ bool ReserveBex(Tenant* t, IntArcMap* up_arc_cap_active, IntArcMap* down_arc_cap
             if(t->tenant_id == (*it).tenant_id) break;
 
             cout << "Dependency: " << (*it).tenant_id << "<-" << t->tenant_id << endl;
-            int bw_sum = min(t->sum_appvm_req*t->external_load, (*it).sum_appvm_req*(*it).external_load);
+            double bw_sum = min(t->sum_appvm_req*t->external_load, (*it).sum_appvm_req*(*it).external_load);
             //may cause something wrong with &(*it)
-            if(!ReserveBWof2Tenant(t, &(*it), bw_sum, (*it).mb_type_num, up_arc_cap_active, down_arc_cap_active, pm_cap_active)) return false;
+            if(!ReserveBWof2Tenant(t, &(*it), bw_sum, up_arc_cap_active, down_arc_cap_active, pm_cap_active)) return false;
             cout << "Dependency: " << (*it).tenant_id << "->" << t->tenant_id << endl;
             if(!ReserveBWof2Tenant(&(*it), t, bw_sum, up_arc_cap_active, down_arc_cap_active, pm_cap_active)) return false;
         }
@@ -801,7 +802,7 @@ bool ReserveBex(Tenant* t, IntArcMap* up_arc_cap_active, IntArcMap* down_arc_cap
     return true;
 }
 
-bool ReserveBW_try(Tenant* t, IntArcMap* up_arc_cap_active, IntArcMap* down_arc_cap_active, IntNodeMap* pm_cap_active){
+bool ReserveBW_try(Tenant* t, DoubleArcMap* up_arc_cap_active, DoubleArcMap* down_arc_cap_active, DoubleNodeMap* pm_cap_active){
     //ReArrangePlacement(t);
     if(!ReserveBin(t, up_arc_cap_active, down_arc_cap_active, pm_cap_active)) return false;
     //Open Tenant
@@ -824,9 +825,9 @@ void Invert(Placement *head){
     head->next = p;
 }
 
-void UnpackMBs(Placement*[] mb_location, int mb_type_num, int[] mb_req_num){
+void UnpackMBs(Placement* mb_location[], int mb_type_num, int mb_req_num[]){
     int mb_req_num_tmp[10];
-    mb_req_num_tmp = memcpy(&mb_req_num_tmp, &mb_req_num, sizeof(mb_req_num));
+    memcpy(&mb_req_num_tmp, mb_req_num, sizeof(mb_req_num_tmp));
     Placement* head = mb_location[0]->next;
     mb_location[0]->next = NULL;
     for(int i = 0; i < mb_type_num; i++){
@@ -868,7 +869,7 @@ bool placement(Tenant* t){
         Alloc(t, t->sum_appvm_req, t->sum_mb_req, st, &subtree_vmcap_active);
         DivideAPPs(t->appvm_location, t->sum_appvm_req);
         UnpackMBs(t->mb_location, t->mb_type_num, t->mb_req_num);
-        for(int i = 0; i < mb_type_num; i++){
+        for(int i = 0; i < t->mb_type_num; i++){
             if(i%2 == t->mb_type_num%2){
                 Invert(t->mb_location[i]);
             }
@@ -878,13 +879,11 @@ bool placement(Tenant* t){
         if(t->placement_success){
             t->sum_appvm_req = sum_appvm_req;
             t->sum_mb_req = sum_mb_req;
-            IntArcMap up_arc_cap_active(g, 0);
-            IntArcMap down_arc_cap_active(g, 0);
-            IntNodeMap pm_cap_active(g,0);
+            DoubleArcMap up_arc_cap_active(g, 0);
+            DoubleArcMap down_arc_cap_active(g, 0);
+            DoubleNodeMap pm_cap_active(g,0);
             if(ReserveBW_try(t, &up_arc_cap_active, &down_arc_cap_active, &pm_cap_active)){
                 cout<<"Tenant accepted!"<<endl;
-                if(t->min_load > t->mv_ratio*t->external_load) place1_cnt++;
-                else place2_cnt++;
                 ModifyCap(&up_arc_cap_active, &down_arc_cap_active, &pm_cap_active);
                 ModifyHostAllowed(t);
                 return true;
@@ -939,8 +938,6 @@ void place(){
     for (auto it = tenant_request_queue.begin(); it != tenant_request_queue.end(); ++it)
     {
         Tenant t = (*it);
-        if(t.min_load > t.mv_ratio*t.external_load) all_place1_cnt++;
-        else all_place2_cnt++;
         cout<<"\ncurrent tenant: "<<t.tenant_id<<endl;
         printTenantRequest(t);
 

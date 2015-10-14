@@ -24,6 +24,7 @@
 #include <vector>
 #include <string>
 #include <assert.h>
+#include <memory.h>
 
 using namespace lemon;
 using namespace std;
@@ -38,15 +39,16 @@ typedef Digraph::InArcIt InArcIt;
 
 /// int maps for counting
 typedef Digraph::ArcMap<int>     IntArcMap;
-//typedef Digraph::ArcMap<double>  DoubleArcMap;
+typedef Digraph::ArcMap<double>  DoubleArcMap;
 typedef Digraph::NodeMap<int>    IntNodeMap;
-//typedef Digraph::NodeMap<double> DoubleNodeMap;
+typedef Digraph::NodeMap<double> DoubleNodeMap;
 typedef Digraph::NodeMap<Node>   ParentNodeMap;
 
 #define INT_MAX 0x7fffffff
 #define TOTAL_MB_TYPE   2
 #define DOUBLE_ZERO 0.0000000001
-
+#define MB_TYPE_NUM_MIN 1
+#define MB_TYPE_NUM_MAX 4
 
 enum MiddleboxType
 {
@@ -85,6 +87,12 @@ struct Tenant
     int              mv_ratio[10];
     int              dep_num;
     set<int>         dependency;
+};
+
+struct LinkNode{
+    int node;
+    bool is_start;
+    LinkNode* next;
 };
 
 typedef list<Tenant> Tenant_Request_Queue;
