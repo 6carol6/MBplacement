@@ -308,8 +308,12 @@ void printTenantRequest(const Tenant& vn)
 
     cout<<"    Load_appvm  = "<<vn.min_load<<endl;
     cout<<"    Load_external  = " <<vn.external_load<<endl;
-    cout<<"    Middlebox_vm_ratio = "<<vn.mv_ratio<<endl;
-    cout<<"    Sum_MB_req = "<<vn.sum_mb_req<<endl;
+    //cout<<"    Middlebox_vm_ratio = "<<vn.mv_ratio<<endl;
+    cout<<"    Middlebox_req      "<<endl;
+    for(int i = 0; i < vn.mb_type_num; i++){
+        cout << vn.mb_req_num[i] <<"/" << vn.sum_mb_req << endl;
+    }
+    //cout<<"    Sum_MB_req = "<<vn.sum_mb_req<<endl;
     cout<<"-----------------------------------------"<<endl;
 }
 
@@ -744,9 +748,13 @@ bool ReserveBWof2MBs(Placement* src, Placement* dst, double bw, DoubleArcMap* up
         while(q != NULL && p->percentage > q->percentage){
             cout << "p/q:" << p->percentage << "/" << q->percentage<<endl;
             double bw_tmp = bw*q->percentage;
-            if(!ReserveBWof2Nodes_unblanced(p->pm_id, q->pm_id, bw_tmp, bw_tmp, up_arc_cap_active, down_arc_cap_active)) return false;
+            if(!ReserveBWof2Nodes_unblanced(p->pm_id, q->pm_id, bw_tmp, bw_tmp, up_arc_cap_active, down_arc_cap_active)){
+                p->percentage = pper;
+                q->percentage = qper;
+                return false;
+            }
             p->percentage -= q->percentage;
-            q->percentage = qper;
+            //q->percentage = qper;
             sum_q += qper;
             q = q->next;
             if(q != NULL) qper = q->percentage;
@@ -756,7 +764,11 @@ bool ReserveBWof2MBs(Placement* src, Placement* dst, double bw, DoubleArcMap* up
         if(p->percentage > DOUBLE_ZERO){
             cout << "p/q:" << p->percentage << "/" << q->percentage<<endl;
             double bw_tmp = bw*p->percentage;
-            if(!ReserveBWof2Nodes_unblanced(p->pm_id, q->pm_id, bw_tmp, bw_tmp, up_arc_cap_active, down_arc_cap_active)) return false;
+            if(!ReserveBWof2Nodes_unblanced(p->pm_id, q->pm_id, bw_tmp, bw_tmp, up_arc_cap_active, down_arc_cap_active)){
+                p->percentage = pper;
+                q->percentage = qper;
+                return false;
+            }
             q->percentage -= p->percentage;
             if(q->percentage < DOUBLE_ZERO){
                 q->percentage = qper;
@@ -901,8 +913,7 @@ bool placement(Tenant* t){
                 Invert(t->mb_location[i]);
             }
         }
-
-        //printAllocation(*t);//test
+        printAllocation(*t);//test
         if(t->placement_success){
             DoubleArcMap up_arc_cap_active(g, 0.0);
             DoubleArcMap down_arc_cap_active(g, 0.0);
