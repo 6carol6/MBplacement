@@ -450,8 +450,8 @@ void Alloc(Tenant* t, int appvm_n, int mb_n, Node root, IntNodeMap* subtree_vmca
         if(t->sum_appvm_req == 0 && t->sum_mb_req == 0) t->placement_success = true;
         return;
     }
-    //if(t->min_load > t->mv_ratio*t->external_load){ //Placement1
-        cout << "placement1"<< endl;
+    if(MISSILE){ //MISSILE
+        cout << "MISSILE"<< endl;
         for(OutArcIt ait(g, root); ait != INVALID; ait++){
             Node child = g.target(ait);
             if(appvm_n != 0){
@@ -477,8 +477,8 @@ void Alloc(Tenant* t, int appvm_n, int mb_n, Node root, IntNodeMap* subtree_vmca
                 mb_n -= n;
             }
         }
-    /*}else{ //Placement2
-        cout << "placement2"<< endl;
+    }else if(TRAIN){ //TRAIN
+        cout << "TRAIN"<< endl;
         while(appvm_n != 0 || mb_n!=0){
             cout << "aaa"<< endl;
             int place_cnt = 0;
@@ -509,7 +509,11 @@ void Alloc(Tenant* t, int appvm_n, int mb_n, Node root, IntNodeMap* subtree_vmca
                 Alloc(t, app, mb, child, subtree_vmcap_active);
             }
         }
-    }*/
+    }else if(TRUCK){ //TRUCK
+
+    }else{
+        cout << "Please choose a placement algorithm!" << endl;
+    }
 /*
     for(OutArcIt ait(g, root); ait != INVALID; ait++){
         Node child = g.target(ait);

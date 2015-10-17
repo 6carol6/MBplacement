@@ -63,6 +63,10 @@ typedef Digraph::NodeMap<Node>   ParentNodeMap;
 #define DEP_OPEN_TENANT_PER 35 //+open
 #define DEP_TENANT_PER 50 //+open+dep_open
 
+#define MISSILE 0
+#define TRAIN 1
+#define TRUCK 0
+
 enum MiddleboxType
 {
     FW=0, RE, IDS, WANOPT
