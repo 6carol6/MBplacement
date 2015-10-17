@@ -739,52 +739,46 @@ bool ReserveBWof2MBs(Placement* src, Placement* dst, double bw, DoubleArcMap* up
     Placement* q = dst;
     double pper = p->percentage;
     double qper = q->percentage;
-    double sum_p =0 ;
-    double sum_q = 0;
+   // double sum_p =0 ;
+    //double sum_q = 0;
     while(p){
 
         pper = p->percentage;
-        if(q == NULL && p != NULL) cout <<"BUG" << endl;
-        while(q != NULL && p->percentage > q->percentage){
-            cout << "p/q:" << p->percentage << "/" << q->percentage<<endl;
-            double bw_tmp = bw*q->percentage;
+        //if(q == NULL && p != NULL) cout <<"BUG" << endl;
+
+        while(q!= NULL && pper > qper){
+            cout << "p/q:" << pper << "/" << qper<<endl;
+            double bw_tmp = bw*qper;
             if(!ReserveBWof2Nodes_unblanced(p->pm_id, q->pm_id, bw_tmp, bw_tmp, up_arc_cap_active, down_arc_cap_active)){
-                p->percentage = pper;
-                q->percentage = qper;
                 return false;
             }
-            p->percentage -= q->percentage;
-            //q->percentage = qper;
-            sum_q += qper;
+            pper -= qper;
             q = q->next;
             if(q != NULL) qper = q->percentage;
         }
-        cout << "-------1------"<<endl;
-        if(q == NULL) cout <<"qNULL"<< p->percentage << endl;
-        if(p->percentage > DOUBLE_ZERO){
-            cout << "p/q:" << p->percentage << "/" << q->percentage<<endl;
-            double bw_tmp = bw*p->percentage;
+        //cout << "-------1------"<<endl;
+        //if(q == NULL && pper > DOUBLE_ZERO) cout <<"qNULL"<< pper << endl;
+        if(pper > DOUBLE_ZERO){
+            cout << "p/q:" << pper << "/" << qper <<endl;
+            double bw_tmp = bw*pper;
             if(!ReserveBWof2Nodes_unblanced(p->pm_id, q->pm_id, bw_tmp, bw_tmp, up_arc_cap_active, down_arc_cap_active)){
-                p->percentage = pper;
-                q->percentage = qper;
                 return false;
             }
-            q->percentage -= p->percentage;
-            if(q->percentage < DOUBLE_ZERO){
-                q->percentage = qper;
-                sum_q += qper;
+            qper -= pper;
+            pper -= pper;
+
+            if(qper < DOUBLE_ZERO){
                 q = q->next;
                 if(q != NULL) qper = q->percentage;
             }
         }
-cout << "-------2------"<<endl;
-        p->percentage = pper;
-        sum_p += pper;
+        //if(pper > DOUBLE_ZERO) cout <<"dayu"<<pper<< endl;
+//cout << "-------2------"<<endl;
         p = p->next;
     }
-    if(sum_p != 1) cout << "errorp" << sum_p << endl;
-    if(sum_q != 1) cout << "errorq" << sum_q <<endl;
-    cout << "============"<<endl;
+    //if(sum_p != 1) cout << "errorp" << sum_p << endl;
+    //if(sum_q != 1) cout << "errorq" << sum_q <<endl;
+   // cout << "============"<<endl;
     return true;
 }
 
