@@ -196,19 +196,19 @@ void createTenantRequests()
 
         // varying mean bandwidth requirement for the tenant jobs
         //cout << "=============Tenant " << i << "==============="<<endl;
-        vn.min_load = uniformIntDist(1100,1300);
+        vn.min_load = uniformIntDist(BIN_MIN, BIN_MAX);
         //vn.min_load = uniformIntDist(1000, 1500);
 
         //vn.external_load = 0;
-        vn.external_load = uniformIntDist(200, 300);//(int)vn.min_load/65.0*30.0;//uniformIntDist(50, 100);
+        vn.external_load = uniformIntDist(BEX_MIN, BEX_MAX);//(int)vn.min_load/65.0*30.0;//uniformIntDist(50, 100);
 
         //vn.sum_appvm_req = uniformIntDist(10, 15);
-        vn.sum_appvm_req = uniformIntDist(5, 15);
+        vn.sum_appvm_req = uniformIntDist(N_MIN, N_MAX);
 
         vn.mb_type_num = uniformIntDist(MB_TYPE_NUM_MIN, MB_TYPE_NUM_MAX);//How many types of MBs?
         vn.sum_mb_req = 0;
         for(int j = 0; j < vn.mb_type_num; j++){
-            int mv_ratio = uniformIntDist(2,8);
+            int mv_ratio = uniformIntDist(R_MIN, R_MAX);
             vn.mv_ratio[j] = mv_ratio;
             vn.mb_req_num[j] = (vn.sum_appvm_req%vn.mv_ratio[j])?vn.sum_appvm_req/vn.mv_ratio[j]+1:vn.sum_appvm_req/vn.mv_ratio[j];
             vn.sum_mb_req += vn.mb_req_num[j];
@@ -224,17 +224,17 @@ void createTenantRequests()
         //if(fraction < 50)
 
         //new dependeny arrangement
-        if(fraction < 10){ //Open tenant
+        if(fraction < OPEN_TENANT_PER){ //Open tenant
             vn.dependency.insert(-1);
             open_tenant_list[open_tenant_num++] = i;
         }
-        else if(fraction >= 10 && fraction < 35){ //Have dependency to open tenant
+        else if(fraction >= OPEN_TENANT_PER && fraction < DEP_OPEN_TENANT_PER){ //Have dependency to open tenant
             if(open_tenant_num){
                 dep_to_open_num++;
                 int rand = uniformIntDist(0, open_tenant_num-1);
                 vn.dependency.insert(open_tenant_list[rand]);
             }
-        }else if(fraction >= 35 && fraction < 50){ //Other dependency
+        }else if(fraction >= DEP_OPEN_TENANT_PER && fraction < DEP_TENANT_PER){ //Other dependency
             int dep_num = 1;//uniformIntDist(1, min((i+1)/2,2));
             while(dep_num--){
                 int rand = uniformIntDist(0, i);
