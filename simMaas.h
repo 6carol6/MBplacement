@@ -48,23 +48,23 @@ typedef Digraph::NodeMap<Node>   ParentNodeMap;
 #define TOTAL_MB_TYPE   2
 #define DOUBLE_ZERO 0.0000000001
 #define MB_TYPE_NUM_MIN 1
-#define MB_TYPE_NUM_MAX 4
+#define MB_TYPE_NUM_MAX 3
 
 //PARAMETERA
-#define BIN_MIN 500
-#define BIN_MAX 1000
+#define BIN_MIN 1000
+#define BIN_MAX 1400
 #define BEX_MIN 200
 #define BEX_MAX 300
 #define N_MIN 5
 #define N_MAX 15
-#define R_MIN 2
+#define R_MIN 6
 #define R_MAX 8
 #define OPEN_TENANT_PER 10
 #define DEP_OPEN_TENANT_PER 35 //+open
 #define DEP_TENANT_PER 50 //+open+dep_open
 
-#define MISSILE 0
-#define TRAIN 1
+#define MISSILE 1
+#define TRAIN 0
 #define TRUCK 0
 
 enum MiddleboxType

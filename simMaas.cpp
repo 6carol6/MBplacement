@@ -488,7 +488,7 @@ void Alloc(Tenant* t, int appvm_n, int mb_n, Node root, IntNodeMap* subtree_vmca
 
                 if(subtree_vmcap[child]==(*subtree_vmcap_active)[child]) continue;
                 int mb = min(1, mb_n);
-                int app = min(t->mv_ratio*mb, appvm_n);
+                int app = min(t->mv_ratio[0]*mb, appvm_n);
                 if(mb_n == 0) app = appvm_n;
                 if(appvm_n == 0 && mb_n==0) break;
                 if(app == 0 && mb == 0) break;
