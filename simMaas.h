@@ -48,7 +48,7 @@ typedef Digraph::NodeMap<Node>   ParentNodeMap;
 #define TOTAL_MB_TYPE   2
 #define DOUBLE_ZERO 0.0000000001
 #define MB_TYPE_NUM_MIN 1
-#define MB_TYPE_NUM_MAX 3
+#define MB_TYPE_NUM_MAX 4
 
 //PARAMETERA
 #define BIN_MIN 1000
@@ -57,14 +57,14 @@ typedef Digraph::NodeMap<Node>   ParentNodeMap;
 #define BEX_MAX 300
 #define N_MIN 5
 #define N_MAX 15
-#define R_MIN 6
-#define R_MAX 8
+#define R_MIN 2
+#define R_MAX 4
 #define OPEN_TENANT_PER 10
 #define DEP_OPEN_TENANT_PER 35 //+open
 #define DEP_TENANT_PER 50 //+open+dep_open
 
-#define MISSILE 1
-#define TRAIN 0
+#define MISSILE 0
+#define TRAIN 1
 #define TRUCK 0
 
 enum MiddleboxType
@@ -102,6 +102,7 @@ struct Tenant
     int              mb_req_num[10]; //How many MBs each type of MB?
     int              mb_type_num; //How many types of MBs?
     int              mv_ratio[10];
+    int              R; //virtual R
     int              dep_num;
     set<int>         dependency;
 };

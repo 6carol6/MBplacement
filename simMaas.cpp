@@ -215,6 +215,7 @@ void createTenantRequests()
             vn.mb_location[j] = new Placement();
             vn.mb_location[j]->next = NULL;
         }
+        vn.R = floor((double)vn.sum_appvm_req/vn.sum_mb_req);
         vn.placement_success = false;
         vn.appvm_location = new Placement();
         vn.appvm_location->next = NULL;
@@ -480,7 +481,6 @@ void Alloc(Tenant* t, int appvm_n, int mb_n, Node root, IntNodeMap* subtree_vmca
     }else if(TRAIN){ //TRAIN
         cout << "TRAIN"<< endl;
         while(appvm_n != 0 || mb_n!=0){
-            cout << "aaa"<< endl;
             int place_cnt = 0;
             for(OutArcIt ait(g,root); ait != INVALID; ait++){
                 Node child = g.target(ait);
@@ -488,7 +488,7 @@ void Alloc(Tenant* t, int appvm_n, int mb_n, Node root, IntNodeMap* subtree_vmca
 
                 if(subtree_vmcap[child]==(*subtree_vmcap_active)[child]) continue;
                 int mb = min(1, mb_n);
-                int app = min(t->mv_ratio[0]*mb, appvm_n);
+                int app = min(t->R*mb, appvm_n);
                 if(mb_n == 0) app = appvm_n;
                 if(appvm_n == 0 && mb_n==0) break;
                 if(app == 0 && mb == 0) break;
@@ -855,7 +855,7 @@ void Invert(Placement *head){
     head->next = p;
 }
 
-void UnpackMBs(Placement* mb_location[], int mb_type_num, int mb_req_num[]){
+void UnpackMBsMISSILE(Placement* mb_location[], int mb_type_num, int mb_req_num[]){
     int mb_req_num_tmp[10];
     memcpy(&mb_req_num_tmp, mb_req_num, sizeof(mb_req_num_tmp));
     Placement* head = mb_location[0]->next;
@@ -876,6 +876,32 @@ void UnpackMBs(Placement* mb_location[], int mb_type_num, int mb_req_num[]){
             head->amount -= mb_req_num_tmp[i];
         }
         if(sum != 1.0) cout << "error: " << sum << endl;
+    }
+}
+void UnpackMBsTRAIN(Placement* app_location, Placement* mb_location[], int mb_type_num, int mb_req_num[], int mv_ratio[]){
+    Placement* head = mb_location[0]->next;
+    mb_location[0]->next = NULL;
+
+    Placement* p = app_location->next;
+    while(p){
+        for(int i = 0; i < mb_type_num; i++){
+            if(head->pm_id != p->pm_id){
+                cout << "may_have_some_error~(cuokai)" << endl;
+            }
+            int num = min((int)ceil(p->amount / mv_ratio[i]), head->amount);
+            AddPlacement(mb_location[i], num, head->pm_id, (double)num/mb_req_num[i]);
+            head->amount -= num;
+            if(head->amount == 0){
+                Placement* tmp = head;
+                head = head->next;
+                delete(tmp);
+            }
+        }
+
+        p = p->next;
+    }
+    if(head != NULL){
+        cout << "error: some unarranged middlebox" << endl;
     }
 }
 
@@ -904,13 +930,21 @@ bool placement(Tenant* t){
         t->sum_appvm_req = sum_appvm_req;
         t->sum_mb_req = sum_mb_req;
         DivideAPPs(t->appvm_location, t->sum_appvm_req);
-        UnpackMBs(t->mb_location, t->mb_type_num, t->mb_req_num);
+        cout << "before rearrange" << endl;
+        printAllocation(*t);//test
+        if(MISSILE || TRUCK){
+            UnpackMBsMISSILE(t->mb_location, t->mb_type_num, t->mb_req_num);
 
-        for(int i = 0; i < t->mb_type_num; i++){
-            if(i%2 == t->mb_type_num%2){
-                Invert(t->mb_location[i]);
+            for(int i = 0; i < t->mb_type_num; i++){
+                if(i%2 == t->mb_type_num%2){
+                    Invert(t->mb_location[i]);
+                }
             }
         }
+        else if(TRAIN){
+            UnpackMBsTRAIN(t->appvm_location, t->mb_location, t->mb_type_num, t->mb_req_num, t->mv_ratio);
+        }
+        cout << "after rearrange" << endl;
         printAllocation(*t);//test
         if(t->placement_success){
             DoubleArcMap up_arc_cap_active(g, 0.0);
@@ -1120,7 +1154,7 @@ void place(){
         //if(1.0-s_util() > 0.55) break;
         double acc = (double)accept_req/total_req;
         double util = 1.0-s_util();
-        //ofstream file("./test25/acc_util.txt", ios::app);
+        //ofstream file("./test/acc_util.txt", ios::app);
         //file << acc << endl;
         //file << util << endl;
         if(util - acc > 0.01) break;
@@ -1130,7 +1164,7 @@ void place(){
     cout<<"Accept Rate: " << (double)accept_req/total_req<<endl;
     //ofstream file("./test29/acc_util_without1200.txt", ios::app);
     //file <<(double)accept_req/total_req << endl;
-    //ofstream file("./test27/acc_util_r3_16.txt", ios::app);
+    //ofstream file("./test1/acc_util14_r3_1200.txt", ios::app);
     //file <<(double)accept_req/total_req << endl;
 
             //ofstream file1("./test24/rej_rate.txt", ios::app);
