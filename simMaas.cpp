@@ -215,7 +215,7 @@ void createTenantRequests()
             vn.mb_location[j] = new Placement();
             vn.mb_location[j]->next = NULL;
         }
-        vn.R = floor((double)vn.sum_appvm_req/vn.sum_mb_req);
+        vn.R = floor((double)vn.sum_appvm_req/(vn.sum_mb_req/vn.mb_type_num));
         vn.placement_success = false;
         vn.appvm_location = new Placement();
         vn.appvm_location->next = NULL;
@@ -481,32 +481,34 @@ void Alloc(Tenant* t, int appvm_n, int mb_n, Node root, IntNodeMap* subtree_vmca
     }else if(TRAIN){ //TRAIN
         cout << "TRAIN"<< endl;
         while(appvm_n != 0 || mb_n!=0){
-            int place_cnt = 0;
+
             for(OutArcIt ait(g,root); ait != INVALID; ait++){
                 Node child = g.target(ait);
-                cout << "bbb"<<subtree_vmcap[child]<<" " << (*subtree_vmcap_active)[child]<<endl;
+                int slot = subtree_vmcap[child] - (*subtree_vmcap_active)[child];
+                if(!slot) continue;
 
-                if(subtree_vmcap[child]==(*subtree_vmcap_active)[child]) continue;
-                int mb = min(1, mb_n);
-                int app = min(t->R*mb, appvm_n);
-                if(mb_n == 0) app = appvm_n;
-                if(appvm_n == 0 && mb_n==0) break;
-                if(app == 0 && mb == 0) break;
-                if(place_cnt == 2) break;
-                place_cnt++;
+                int mut_r = 1;
 
-                if(mb + app > subtree_vmcap[child]-(*subtree_vmcap_active)[child]){
-                    if(subtree_vmcap[child]-(*subtree_vmcap_active)[child] > app/2){
-                        app = min(subtree_vmcap[child]-(*subtree_vmcap_active)[child]-mb, app);
-                    }else{
-                        mb = 0;
-                        app = min(app,subtree_vmcap[child]-(*subtree_vmcap_active)[child]);
-                    }
+                for(int i = 0; i < t->mb_type_num; i++){
+                    mut_r *= t->mv_ratio[i];
                 }
-                cout << app << " " << mb << endl;
-                (*subtree_vmcap_active)[child] += (app+mb);
+                int mut = 0;
+                for(int i = 0; i < t->mb_type_num; i++){
+                    mut += mut_r/t->mv_ratio[i];
+                }
+                int app = min(slot*mut_r/(mut_r+mut), appvm_n);
+                int mb = min(mb_n, min(slot-app, t->mb_type_num*(int)ceil(app/t->R)));
+
+                cout <<"slot: " << slot << endl;
+                cout <<"app/mb: " << app << "/" << mb << endl;
+                cout <<"app_n/mb_n: " << appvm_n << "/" << mb_n << endl;
+
+                if(app == 0 && mb == 0) break;
                 appvm_n -= app; mb_n -= mb;
+
                 Alloc(t, app, mb, child, subtree_vmcap_active);
+
+                if(!appvm_n || !mb_n) cout <<"meifangwan" << endl;
             }
         }
     }else if(TRUCK){ //TRUCK
@@ -514,36 +516,6 @@ void Alloc(Tenant* t, int appvm_n, int mb_n, Node root, IntNodeMap* subtree_vmca
     }else{
         cout << "Please choose a placement algorithm!" << endl;
     }
-/*
-    for(OutArcIt ait(g, root); ait != INVALID; ait++){
-        Node child = g.target(ait);
-        if(t->min_load > t->mv_ratio*t->external_load){ //Placement1
-            //cout << "Placement1:" << endl;
-            if(t->sum_appvm_req != 0){
-                int n = min(t->sum_appvm_req, subtree_vmcap[child]);
-                if(subtree_vmcap[child] > n)
-                    Alloc(t, n, subtree_vmcap[child]-n, child, subtree_vmcap_active);
-            }else{
-                int n = min(t->sum_mb_req, subtree_vmcap[child]);
-                Alloc(t, 0, n, child, subtree_vmcap_active);
-            }
-        }else{//Placement2
-            //cout << "Placement2:" << endl;
-            if(t->sum_mb_req + t->sum_appvm_req <= subtree_vmcap[child]){
-                Alloc(t, t->sum_appvm_req, t->sum_mb_req, child, subtree_vmcap_active);
-            }else{
-                int n = min(t->sum_mb_req + t->sum_appvm_req, subtree_vmcap[child]);
-                if(subtree_vmcap[child]< 0) cout << "aaaa"<< endl;
-                int R = t->mv_ratio;
-                //int app = min((n*R)/(R+1), t->sum_appvm_req);
-                //if(app == 0) cout << "aaaaa"<< endl;
-                int mb = min((int)ceil((double)n/(R+1)), t->sum_mb_req);
-                int app = min(subtree_vmcap[child]-mb,t->sum_appvm_req);
-                Alloc(t, app, mb, child, subtree_vmcap_active);
-            }
-            if(t->placement_success) return;
-        }
-    }*/
 }
 
 void ModifyCap(DoubleArcMap *up_arc_cap_active, DoubleArcMap* down_arc_cap_active, DoubleNodeMap* pm_cap_active){
@@ -929,9 +901,10 @@ bool placement(Tenant* t){
         Alloc(t, t->sum_appvm_req, t->sum_mb_req, st, &subtree_vmcap_active);
         t->sum_appvm_req = sum_appvm_req;
         t->sum_mb_req = sum_mb_req;
-        DivideAPPs(t->appvm_location, t->sum_appvm_req);
         cout << "before rearrange" << endl;
         printAllocation(*t);//test
+exit(1);
+        DivideAPPs(t->appvm_location, t->sum_appvm_req);
         if(MISSILE || TRUCK){
             UnpackMBsMISSILE(t->mb_location, t->mb_type_num, t->mb_req_num);
 
@@ -944,12 +917,14 @@ bool placement(Tenant* t){
         else if(TRAIN){
             UnpackMBsTRAIN(t->appvm_location, t->mb_location, t->mb_type_num, t->mb_req_num, t->mv_ratio);
         }
+
         cout << "after rearrange" << endl;
         printAllocation(*t);//test
         if(t->placement_success){
             DoubleArcMap up_arc_cap_active(g, 0.0);
             DoubleArcMap down_arc_cap_active(g, 0.0);
             DoubleNodeMap pm_cap_active(g,0.0);
+
             if(ReserveBW_try(t, &up_arc_cap_active, &down_arc_cap_active, &pm_cap_active)){
                 cout<<"Tenant accepted!"<<endl;
                 ModifyCap(&up_arc_cap_active, &down_arc_cap_active, &pm_cap_active);
