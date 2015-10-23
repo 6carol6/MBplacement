@@ -332,9 +332,10 @@ void printAllocation(Tenant &t)
         for(int i = 0; i < t.mb_type_num; i++){
             Placement *q = t.mb_location[i]->next;
             while(q){
-                cout<<"<"<<q->pm_id<<","<<q->amount<<">";
+                cout<<"<"<<q->pm_id<<","<<q->amount<<","<<q->percentage<<">";
                 q = q->next;
             }
+            cout << endl << "             ";
         }
         cout<<endl;
 }
@@ -428,11 +429,12 @@ void AddPlacement(Placement* head, int num, int pm_id, double percentage){
     while(p->next){
         if(p->pm_id == pm_id){
             p->amount += num;
+            p->percentage += percentage;
             return;
         }
         p = p->next;
     }
-    if(p->pm_id == pm_id){ p->amount += num;return;}
+    if(p->pm_id == pm_id){ p->amount += num;p->percentage += percentage;return;}
     Placement* tmp = new Placement();
     tmp->pm_id = pm_id; tmp->amount = num; tmp->percentage = percentage;
     tmp->next = head->next;
@@ -497,7 +499,9 @@ void Alloc(Tenant* t, int appvm_n, int mb_n, Node root, IntNodeMap* subtree_vmca
                     mut += mut_r/t->mv_ratio[i];
                 }
                 int app = min(slot*mut_r/(mut_r+mut), appvm_n);
-                int mb = min(mb_n, min(slot-app, t->mb_type_num*(int)ceil(app/t->R)));
+                int mb = min(mb_n, min(slot-app, t->mb_type_num*(int)ceil((double)app/t->R)));
+                if(!app && slot) mb = min(mb_n, slot);
+                if(!mb && slot) app = min(appvm_n, slot);
 
                 cout <<"slot: " << slot << endl;
                 cout <<"app/mb: " << app << "/" << mb << endl;
@@ -723,6 +727,7 @@ bool ReserveBWof2MBs(Placement* src, Placement* dst, double bw, DoubleArcMap* up
         //if(q == NULL && p != NULL) cout <<"BUG" << endl;
 
         while(q!= NULL && pper > qper){
+            cout <<"1qid:"<<q->pm_id << endl;
             cout << "p/q:" << pper << "/" << qper<<endl;
             double bw_tmp = bw*qper;
             if(!ReserveBWof2Nodes_unblanced(p->pm_id, q->pm_id, bw_tmp, bw_tmp, up_arc_cap_active, down_arc_cap_active)){
@@ -733,8 +738,9 @@ bool ReserveBWof2MBs(Placement* src, Placement* dst, double bw, DoubleArcMap* up
             if(q != NULL) qper = q->percentage;
         }
         //cout << "-------1------"<<endl;
-        //if(q == NULL && pper > DOUBLE_ZERO) cout <<"qNULL"<< pper << endl;
+        if(q == NULL && pper > DOUBLE_ZERO) cout <<"qNULL"<< pper << endl;
         if(pper > DOUBLE_ZERO){
+            cout <<"2qid:"<<q->pm_id << endl;
             cout << "p/q:" << pper << "/" << qper <<endl;
             double bw_tmp = bw*pper;
             if(!ReserveBWof2Nodes_unblanced(p->pm_id, q->pm_id, bw_tmp, bw_tmp, up_arc_cap_active, down_arc_cap_active)){
@@ -851,23 +857,34 @@ void UnpackMBsMISSILE(Placement* mb_location[], int mb_type_num, int mb_req_num[
     }
 }
 void UnpackMBsTRAIN(Placement* app_location, Placement* mb_location[], int mb_type_num, int mb_req_num[], int mv_ratio[]){
+    int mb_req_num_tmp[10];
+    memcpy(&mb_req_num_tmp, mb_req_num, sizeof(mb_req_num_tmp));
     Placement* head = mb_location[0]->next;
     mb_location[0]->next = NULL;
-
     Placement* p = app_location->next;
     while(p){
         for(int i = 0; i < mb_type_num; i++){
             if(head->pm_id != p->pm_id){
                 cout << "may_have_some_error~(cuokai)" << endl;
             }
-            int num = min((int)ceil(p->amount / mv_ratio[i]), head->amount);
-            AddPlacement(mb_location[i], num, head->pm_id, (double)num/mb_req_num[i]);
-            head->amount -= num;
-            if(head->amount == 0){
-                Placement* tmp = head;
-                head = head->next;
-                delete(tmp);
+            int num = min((int)ceil((double)p->amount / mv_ratio[i]), mb_req_num_tmp[i]);
+            mb_req_num_tmp[i] -= num;
+            while(num){
+                int mb_n = min(num, head->amount);
+                AddPlacement(mb_location[i], mb_n, head->pm_id, (double)mb_n/mb_req_num[i]);
+                if(head->amount == mb_n){
+                    Placement* tmp = head;
+                    head = head->next;
+                    if(head == NULL) return;
+                    delete(tmp);
+                }else{
+                    head->amount -= mb_n;
+                }
+                num -= mb_n;
             }
+            //int num = min(, head->amount);
+            cout << (int)ceil(p->amount / mv_ratio[i]) << "/" << head->amount << endl;
+
         }
 
         p = p->next;
@@ -881,6 +898,7 @@ void DivideAPPs(Placement* head, int sum){
     Placement* p = head->next;
     while(p){
         p->percentage = (double)p->amount/sum;
+        if(p->amount == 0) cout <<"amount init?"<< endl;//error test
         p = p->next;
     }
 }
@@ -903,7 +921,7 @@ bool placement(Tenant* t){
         t->sum_mb_req = sum_mb_req;
         cout << "before rearrange" << endl;
         printAllocation(*t);//test
-exit(1);
+
         DivideAPPs(t->appvm_location, t->sum_appvm_req);
         if(MISSILE || TRUCK){
             UnpackMBsMISSILE(t->mb_location, t->mb_type_num, t->mb_req_num);
@@ -916,6 +934,11 @@ exit(1);
         }
         else if(TRAIN){
             UnpackMBsTRAIN(t->appvm_location, t->mb_location, t->mb_type_num, t->mb_req_num, t->mv_ratio);
+            cout << "after rearrange" << endl;
+        printAllocation(*t);//test
+            for(int i = 0; i < t->mb_type_num; i++){
+                Invert(t->mb_location[i]);
+            }
         }
 
         cout << "after rearrange" << endl;
