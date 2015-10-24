@@ -450,6 +450,11 @@ void Alloc(Tenant* t, int appvm_n, int mb_n, Node root, IntNodeMap* subtree_vmca
         AddPlacement(t->mb_location[0], mb_n, g.id(root), 0);
         (*subtree_vmcap_active)[root] += appvm_n;
         (*subtree_vmcap_active)[root] += mb_n;
+        while(g.id(parent_node[root]) != 0){
+            root = parent_node[root];
+            (*subtree_vmcap_active)[root] += appvm_n;
+            (*subtree_vmcap_active)[root] += mb_n;
+        }
         t->sum_appvm_req -= appvm_n;
         t->sum_mb_req -= mb_n;
         if(t->sum_appvm_req == 0 && t->sum_mb_req == 0) t->placement_success = true;
@@ -485,11 +490,12 @@ void Alloc(Tenant* t, int appvm_n, int mb_n, Node root, IntNodeMap* subtree_vmca
         }
     }else if(TRAIN){ //TRAIN
         cout << "TRAIN"<< endl;
-        while(appvm_n != 0 || mb_n!=0){
+        while(appvm_n || mb_n){
 
             for(OutArcIt ait(g,root); ait != INVALID; ait++){
                 Node child = g.target(ait);
                 int slot = subtree_vmcap[child] - (*subtree_vmcap_active)[child];
+                //cout <<"1slot: " << slot << endl;
                 if(!slot) continue;
 
                 int mut_r = 1;
@@ -512,15 +518,16 @@ void Alloc(Tenant* t, int appvm_n, int mb_n, Node root, IntNodeMap* subtree_vmca
 
                 if(app == 0 && mb == 0) break;
                 appvm_n -= app; mb_n -= mb;
-
+                cout <<"meifangwan" << appvm_n << "/" << mb_n << endl;
                 Alloc(t, app, mb, child, subtree_vmcap_active);
 
-                if(!appvm_n || !mb_n) cout <<"meifangwan" << endl;
+                if(appvm_n || mb_n) cout <<"meifangwan" << appvm_n << "/" << mb_n << endl;
+                else break;
             }
         }
     }else if(TRUCK){ //TRUCK
         cout << "TRUCK" << endl;
-        while(appvm_n != 0 || mb_n!=0){
+        while(appvm_n || mb_n){
             for(OutArcIt ait(g, root); ait != INVALID; ait++){
                 Node child = g.target(ait);
                 int slot = subtree_vmcap[child] - (*subtree_vmcap_active)[child];
@@ -533,8 +540,8 @@ void Alloc(Tenant* t, int appvm_n, int mb_n, Node root, IntNodeMap* subtree_vmca
                     Alloc(t, 0, n, child,subtree_vmcap_active);
                     mb_n -= n;
                 }
+                if(!mb_n && !appvm_n) break;
             }
-            if(!mb_n && !appvm_n) break;
         }
 
     }else{
@@ -1135,9 +1142,9 @@ void place(){
             }
 
         }*/
-        /*if(total_req == 12000){
-            ofstream slot_out("./test17/pmslot12000.txt", ios::app);
-            ofstream bw_out("./test17/pmbw12000.txt", ios::app);
+        if(total_req == 12000){
+            ofstream slot_out("./test2/pmslot12000_TRUCK.txt", ios::app);
+            ofstream bw_out("./test2/pmbw12000_TRUCK.txt", ios::app);
             LinkNode* p = PM_LAYER;
             while(p != NULL){
                 slot_out<<subtree_vmcap[g.nodeFromId(p->node)]<< endl;
@@ -1154,7 +1161,7 @@ void place(){
                 p = p->next;
             }
 
-        }*/
+        }
         total_req++;
 /*
             if(1.0-s_util() >= 0.5 && 1.0-s_util() < 0.55){
@@ -1175,7 +1182,7 @@ void place(){
         //ofstream file("./test/acc_util.txt", ios::app);
         //file << acc << endl;
         //file << util << endl;
-        if(util - acc > 0.01) break;
+        //if(util - acc > 0.01) break;
     }
 
     cout<<"Util Rate: " << 1.0-s_util()<<endl;
