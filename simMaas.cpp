@@ -448,6 +448,8 @@ void Alloc(Tenant* t, int appvm_n, int mb_n, Node root, IntNodeMap* subtree_vmca
         AddPlacement(t->appvm_location, appvm_n, g.id(root), 0);
         //cout << "test" << t->appvm_location->next->pm_id << endl;
         AddPlacement(t->mb_location[0], mb_n, g.id(root), 0);
+        (*subtree_vmcap_active)[root] += appvm_n;
+        (*subtree_vmcap_active)[root] += mb_n;
         t->sum_appvm_req -= appvm_n;
         t->sum_mb_req -= mb_n;
         if(t->sum_appvm_req == 0 && t->sum_mb_req == 0) t->placement_success = true;
@@ -457,15 +459,15 @@ void Alloc(Tenant* t, int appvm_n, int mb_n, Node root, IntNodeMap* subtree_vmca
         cout << "MISSILE"<< endl;
         for(OutArcIt ait(g, root); ait != INVALID; ait++){
             Node child = g.target(ait);
+            int slot = subtree_vmcap[child] - (*subtree_vmcap_active)[child];
             if(appvm_n != 0){
-                cout << "appvm_n" << appvm_n << "/"<<subtree_vmcap[child]<< endl;
-                //cout << subtree_vmcap[child]<<"place1"<<" "<< t->sum_appvm_req<< endl;
-                int n = min(appvm_n, subtree_vmcap[child]);
-                if(subtree_vmcap[child] > n){
-                    cout << "mb_n: " << mb_n << "/"<<subtree_vmcap[child]<< endl;
-                    Alloc(t, n, min(mb_n,subtree_vmcap[child]-n), child, subtree_vmcap_active);
+                cout << "appvm_n" << appvm_n << "/"<< slot << endl;
+                int n = min(appvm_n, slot);
+                if(slot > n){
+                    cout << "mb_n: " << mb_n << "/"<<slot<< endl;
+                    Alloc(t, n, min(mb_n,slot-n), child, subtree_vmcap_active);
                     //printAllocation(*t);
-                    mb_n -= min(mb_n,subtree_vmcap[child]-n);
+                    mb_n -= min(mb_n,slot-n);
                     appvm_n -= n;
                 }else{
                     Alloc(t, n, 0, child, subtree_vmcap_active);
@@ -474,11 +476,12 @@ void Alloc(Tenant* t, int appvm_n, int mb_n, Node root, IntNodeMap* subtree_vmca
             }else{
                  //printAllocation(*t);
                // cout << subtree_vmcap[child]<<"place2"<< endl;
-               cout << "mb_n: " << mb_n << "/"<<subtree_vmcap[child]<< endl;
-                int n = min(mb_n, subtree_vmcap[child]);
+               cout << "mb_n: " << mb_n << "/"<<slot<< endl;
+                int n = min(mb_n, slot);
                 Alloc(t, 0, n, child,subtree_vmcap_active);
                 mb_n -= n;
             }
+            if(!mb_n && !appvm_n) break;
         }
     }else if(TRAIN){ //TRAIN
         cout << "TRAIN"<< endl;
@@ -516,6 +519,23 @@ void Alloc(Tenant* t, int appvm_n, int mb_n, Node root, IntNodeMap* subtree_vmca
             }
         }
     }else if(TRUCK){ //TRUCK
+        cout << "TRUCK" << endl;
+        while(appvm_n != 0 || mb_n!=0){
+            for(OutArcIt ait(g, root); ait != INVALID; ait++){
+                Node child = g.target(ait);
+                int slot = subtree_vmcap[child] - (*subtree_vmcap_active)[child];
+                if(appvm_n != 0){
+                    int n = min(appvm_n, slot);
+                    Alloc(t, n, 0, child, subtree_vmcap_active);
+                    appvm_n -= n;
+                }else{
+                    int n = min(mb_n, slot);
+                    Alloc(t, 0, n, child,subtree_vmcap_active);
+                    mb_n -= n;
+                }
+            }
+            if(!mb_n && !appvm_n) break;
+        }
 
     }else{
         cout << "Please choose a placement algorithm!" << endl;
