@@ -350,8 +350,8 @@ LinkNode* FindLowestSubtree(Tenant* t, int layer, int again){
     //cout << "findtree" << layer <<endl;
     if(layer == 4) return 0;
     LinkNode* p = NULL;
-    if(layer == 0){ p = PM_LAYER;}
-    else if(layer == 1){ p = TOR_LAYER;}
+    //if(layer == 0){ p = PM_LAYER;}
+    if(layer == 1){ p = TOR_LAYER;}
     else if(layer == 2){ p = LEAF_LAYER;}
     else{ //layer == 3; SPINE_LAYER
         LinkNode* tmp = new LinkNode();
@@ -370,7 +370,7 @@ LinkNode* FindLowestSubtree(Tenant* t, int layer, int again){
     //cout << g.id(*(PM_LAYER->node))<< "carolz"<<endl;
     while(p->next){
         if(p->node < again && checkslot(t, &g.nodeFromId(p->node))){
-            if(layer != 0){
+            if(layer != 1){ //TOR
                 for(OutArcIt ait(g, g.nodeFromId(p->node)); ait != INVALID; ait++){
                     if(checkslot(t, &g.target(ait))){
                         return FindLowestSubtree(t, layer-1, again);
@@ -382,7 +382,7 @@ LinkNode* FindLowestSubtree(Tenant* t, int layer, int again){
         p = p->next;
     }
     if(p->node < again && checkslot(t, &g.nodeFromId(p->node))){
-        if(layer != 0){
+        if(layer != 1){ //TOR
             for(OutArcIt ait(g, g.nodeFromId(p->node)); ait != INVALID; ait++){
                 if(checkslot(t, &g.target(ait))){
                     return FindLowestSubtree(t, layer-1, again);
@@ -931,7 +931,7 @@ void DivideAPPs(Placement* head, int sum){
 }
 
 bool placement(Tenant* t){
-    int level = 0;
+    int level = 1; //TOR
     int again = 999999;
     LinkNode* ln = FindLowestSubtree(t, level, again);
     int cnt = 1;
@@ -1143,8 +1143,8 @@ void place(){
 
         }*/
         if(total_req == 12000){
-            ofstream slot_out("./test2/pmslot12000_TRUCK.txt", ios::app);
-            ofstream bw_out("./test2/pmbw12000_TRUCK.txt", ios::app);
+            ofstream slot_out("./test3/pmslot12000_TRAIN.txt", ios::app);
+            ofstream bw_out("./test3/pmbw12000_TRAIN.txt", ios::app);
             LinkNode* p = PM_LAYER;
             while(p != NULL){
                 slot_out<<subtree_vmcap[g.nodeFromId(p->node)]<< endl;
