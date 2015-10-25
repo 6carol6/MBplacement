@@ -585,9 +585,11 @@ void ModifyHostAllowed(Tenant* t){
     }
 }
 bool ReserveBWof2Nodes_unblanced(int src, int dst, double uplink_bw, double downlink_bw, DoubleArcMap* up_arc_cap_active, DoubleArcMap* down_arc_cap_active){
-    //bandwidth constraint, write later
+    //bandwidth constraint
     if(src == dst){
-
+        (*pm_cap_active)[node] += min(uplink_bw, downlink_bw);
+        cout << (*pm_cap_active)[node] << "/" << PM_CAP[node] << endl;
+        if(with_pmcap && (*pm_cap_active)[node] > PM_CAP[node]) return false;
     }
 
     while(src != dst){
