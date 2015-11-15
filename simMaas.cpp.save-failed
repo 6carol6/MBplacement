@@ -19,7 +19,7 @@
 using namespace std;
 using namespace lemon;
 
-bool with_pmcap = true;
+bool with_pmcap = false;
 
 Digraph        g;
 IntNodeMap     PM_CAP(g);
@@ -590,10 +590,7 @@ bool ReserveBWof2Nodes_unblanced(int src, int dst, double uplink_bw, double down
         Node node = g.nodeFromId(src);
         (*pm_cap_active)[node] += min(uplink_bw, downlink_bw);
         cout << (*pm_cap_active)[node] << "/" << PM_CAP[node] << endl;
-        if(with_pmcap && (*pm_cap_active)[node] > PM_CAP[node]){
-            cout << "waibu" << endl;
-            return false;
-        }
+        if(with_pmcap && (*pm_cap_active)[node] > PM_CAP[node]) return false;
     }
 
     while(src != dst){
@@ -813,11 +810,11 @@ bool ReserveBWof2Tenant(Tenant* src, Tenant* dst, double bw_sum, DoubleArcMap* u
         //mb
         for(int i = 1; i < dst->mb_type_num; i++){
             cout <<"mb"<<i-1<<" -> "<<"mb" << i << endl;
-            if(!ReserveBWof2MBs(dst->mb_location[i-1]->next, dst->mb_location[i]->next, bw, up_arc_cap_active, down_arc_cap_active, pm_cap_active)) return false;
+            ReserveBWof2MBs(dst->mb_location[i-1]->next, dst->mb_location[i]->next, bw, up_arc_cap_active, down_arc_cap_active, pm_cap_active);
         }
         //mb->dst
         cout <<"mb"<<dst->mb_type_num-1<<" -> dst"<<endl;
-        if(!ReserveBWof2MBs(dst->mb_location[dst->mb_type_num-1]->next, dst->appvm_location->next, bw, up_arc_cap_active, down_arc_cap_active, pm_cap_active)) return false;
+        ReserveBWof2MBs(dst->mb_location[dst->mb_type_num-1]->next, dst->appvm_location->next, bw, up_arc_cap_active, down_arc_cap_active, pm_cap_active);
 
         p = p->next;
     }
@@ -1194,9 +1191,9 @@ void place(){
 
     cout<<"Util Rate: " << 1.0-s_util()<<endl;
     cout<<"Accept Rate: " << (double)accept_req/total_req<<endl;
-    ofstream file("./test15/acc_util_with700.txt", ios::app);
+    //ofstream file("./test29/acc_util_without1200.txt", ios::app);
     //file <<(double)accept_req/total_req << endl;
-    //ofstream file("./test15/acc_util_without_700.txt", ios::app);
+    ofstream file("./test14/acc_util14_r7_1200.txt", ios::app);
     file <<(double)accept_req/total_req << endl;
 
             //ofstream file1("./test24/rej_rate.txt", ios::app);
