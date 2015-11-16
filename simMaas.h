@@ -51,8 +51,8 @@ typedef Digraph::NodeMap<Node>   ParentNodeMap;
 #define MB_TYPE_NUM_MAX 4
 
 //PARAMETERA
-#define BIN_MIN 600
-#define BIN_MAX 800
+#define BIN_MIN 400
+#define BIN_MAX 600
 #define BEX_MIN 200
 #define BEX_MAX 300
 #define N_MIN 5

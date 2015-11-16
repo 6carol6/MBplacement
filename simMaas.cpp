@@ -22,7 +22,7 @@ using namespace lemon;
 bool with_pmcap = true;
 
 Digraph        g;
-IntNodeMap     PM_CAP(g);
+DoubleNodeMap     PM_CAP(g);
 IntNodeMap     node_type(g);
 IntArcMap      arc_type(g);
 IntNodeMap     subtree_vmcap(g);
@@ -584,13 +584,13 @@ void ModifyHostAllowed(Tenant* t){
         }
     }
 }
-bool ReserveBWof2Nodes_unblanced(int src, int dst, double uplink_bw, double downlink_bw, DoubleArcMap* up_arc_cap_active, DoubleArcMap* down_arc_cap_active, DoubleNodeMap* pm_cap_active){
+bool ReserveBWof2Nodes_unblanced(int src, int dst, double uplink_bw, double downlink_bw, DoubleArcMap* up_arc_cap_active, DoubleArcMap* down_arc_cap_active, DoubleNodeMap* pm_cap_active, bool with){
     //bandwidth constraint
-    if(src == dst){
+    if(with && with_pmcap && src == dst){
         Node node = g.nodeFromId(src);
         (*pm_cap_active)[node] += min(uplink_bw, downlink_bw);
         cout << (*pm_cap_active)[node] << "/" << PM_CAP[node] << endl;
-        if(with_pmcap && (*pm_cap_active)[node] > PM_CAP[node]){
+        if((*pm_cap_active)[node] - PM_CAP[node] > DOUBLE_ZERO){
             cout << "waibu" << endl;
             return false;
         }
@@ -725,7 +725,7 @@ bool ReserveBin(Tenant* t, DoubleArcMap* up_arc_cap_active, DoubleArcMap* down_a
         Node node = g.nodeFromId(p->pm_id);
         (*pm_cap_active)[node] += (p->amount/2)*t->min_load;
         cout << (*pm_cap_active)[node] << "/" << PM_CAP[node] << endl;
-        if(with_pmcap && (*pm_cap_active)[node] > PM_CAP[node]) return false;
+        if(with_pmcap && (*pm_cap_active)[node] - PM_CAP[node] > DOUBLE_ZERO) return false;
         p = p->next;
     }
     while(s.size()!=1){
@@ -747,7 +747,7 @@ bool ReserveBin(Tenant* t, DoubleArcMap* up_arc_cap_active, DoubleArcMap* down_a
     return true;
 }
 
-bool ReserveBWof2MBs(Placement* src, Placement* dst, double bw, DoubleArcMap* up_arc_cap_active, DoubleArcMap* down_arc_cap_active, DoubleNodeMap* pm_cap_active){
+bool ReserveBWof2MBs(Placement* src, Placement* dst, double bw, DoubleArcMap* up_arc_cap_active, DoubleArcMap* down_arc_cap_active, DoubleNodeMap* pm_cap_active, bool with){
     Placement* p = src;
     Placement* q = dst;
     double pper = p->percentage;
@@ -763,7 +763,7 @@ bool ReserveBWof2MBs(Placement* src, Placement* dst, double bw, DoubleArcMap* up
             cout <<"1qid:"<<q->pm_id << endl;
             cout << "p/q:" << pper << "/" << qper<<endl;
             double bw_tmp = bw*qper;
-            if(!ReserveBWof2Nodes_unblanced(p->pm_id, q->pm_id, bw_tmp, bw_tmp, up_arc_cap_active, down_arc_cap_active, pm_cap_active)){
+            if(!ReserveBWof2Nodes_unblanced(p->pm_id, q->pm_id, bw_tmp, bw_tmp, up_arc_cap_active, down_arc_cap_active, pm_cap_active, with)){
                 return false;
             }
             pper -= qper;
@@ -776,7 +776,7 @@ bool ReserveBWof2MBs(Placement* src, Placement* dst, double bw, DoubleArcMap* up
             cout <<"2qid:"<<q->pm_id << endl;
             cout << "p/q:" << pper << "/" << qper <<endl;
             double bw_tmp = bw*pper;
-            if(!ReserveBWof2Nodes_unblanced(p->pm_id, q->pm_id, bw_tmp, bw_tmp, up_arc_cap_active, down_arc_cap_active, pm_cap_active)){
+            if(!ReserveBWof2Nodes_unblanced(p->pm_id, q->pm_id, bw_tmp, bw_tmp, up_arc_cap_active, down_arc_cap_active, pm_cap_active, with)){
                 return false;
             }
             qper -= pper;
@@ -797,7 +797,7 @@ bool ReserveBWof2MBs(Placement* src, Placement* dst, double bw, DoubleArcMap* up
     return true;
 }
 
-bool ReserveBWof2Tenant(Tenant* src, Tenant* dst, double bw_sum, DoubleArcMap* up_arc_cap_active, DoubleArcMap* down_arc_cap_active, DoubleNodeMap* pm_cap_active){
+bool ReserveBWof2Tenant(Tenant* src, Tenant* dst, double bw_sum, DoubleArcMap* up_arc_cap_active, DoubleArcMap* down_arc_cap_active, DoubleNodeMap* pm_cap_active, bool with){
     Placement* p = src->appvm_location->next;
 
     while(p){
@@ -807,17 +807,17 @@ bool ReserveBWof2Tenant(Tenant* src, Tenant* dst, double bw_sum, DoubleArcMap* u
         Placement* q = dst->mb_location[0]->next;
         while(q){
             cout << "bw_test" << p->percentage << " " <<q->percentage<<endl;
-            if(!ReserveBWof2Nodes_unblanced(p->pm_id, q->pm_id, bw*q->percentage, bw*q->percentage, up_arc_cap_active, down_arc_cap_active, pm_cap_active)) return false;
+            if(!ReserveBWof2Nodes_unblanced(p->pm_id, q->pm_id, bw*q->percentage, bw*q->percentage, up_arc_cap_active, down_arc_cap_active, pm_cap_active, with)) return false;
             q = q->next;
         }
         //mb
         for(int i = 1; i < dst->mb_type_num; i++){
             cout <<"mb"<<i-1<<" -> "<<"mb" << i << endl;
-            if(!ReserveBWof2MBs(dst->mb_location[i-1]->next, dst->mb_location[i]->next, bw, up_arc_cap_active, down_arc_cap_active, pm_cap_active)) return false;
+            if(!ReserveBWof2MBs(dst->mb_location[i-1]->next, dst->mb_location[i]->next, bw, up_arc_cap_active, down_arc_cap_active, pm_cap_active, with)) return false;
         }
         //mb->dst
         cout <<"mb"<<dst->mb_type_num-1<<" -> dst"<<endl;
-        if(!ReserveBWof2MBs(dst->mb_location[dst->mb_type_num-1]->next, dst->appvm_location->next, bw, up_arc_cap_active, down_arc_cap_active, pm_cap_active)) return false;
+        if(!ReserveBWof2MBs(dst->mb_location[dst->mb_type_num-1]->next, dst->appvm_location->next, bw, up_arc_cap_active, down_arc_cap_active, pm_cap_active, with)) return false;
 
         p = p->next;
     }
@@ -835,9 +835,9 @@ bool ReserveBex(Tenant* t, DoubleArcMap* up_arc_cap_active, DoubleArcMap* down_a
             cout << "Dependency: " << (*it).tenant_id << "<-" << t->tenant_id << endl;
             double bw_sum = min(t->sum_appvm_req*t->external_load, (*it).sum_appvm_req*(*it).external_load);
             //may cause something wrong with &(*it)
-            if(!ReserveBWof2Tenant(t, &(*it), bw_sum, up_arc_cap_active, down_arc_cap_active, pm_cap_active)) return false;
+            if(!ReserveBWof2Tenant(t, &(*it), bw_sum, up_arc_cap_active, down_arc_cap_active, pm_cap_active, true)) return false;
             cout << "Dependency: " << (*it).tenant_id << "->" << t->tenant_id << endl;
-            if(!ReserveBWof2Tenant(&(*it), t, bw_sum, up_arc_cap_active, down_arc_cap_active, pm_cap_active)) return false;
+            if(!ReserveBWof2Tenant(&(*it), t, bw_sum, up_arc_cap_active, down_arc_cap_active, pm_cap_active, false)) return false;
         }
    }
     return true;
@@ -1194,7 +1194,7 @@ void place(){
 
     cout<<"Util Rate: " << 1.0-s_util()<<endl;
     cout<<"Accept Rate: " << (double)accept_req/total_req<<endl;
-    ofstream file("./test15/acc_util_with700.txt", ios::app);
+    ofstream file("./test16/acc_util_with500.txt", ios::app);
     //file <<(double)accept_req/total_req << endl;
     //ofstream file("./test15/acc_util_without_700.txt", ios::app);
     file <<(double)accept_req/total_req << endl;
